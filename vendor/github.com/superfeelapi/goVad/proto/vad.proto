@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package vad;
+
+option go_package = "github.com/superfeelapi/goVad/proto";
+
+message Room {
+  string source = 1;
+  string agi_id = 2;
+  string socketio_session_id = 3;
+}
+
+message Status {
+  string agi_id = 1;
+}
+
+message Data {
+  string source = 1;
+  string agi_id = 2;
+  bool detected = 3;
+}
+
+message Response {}
+
+service Vad {
+  rpc Register(Room) returns (Response);
+  rpc CheckRoomStatus(Status) returns (Response);
+  rpc Send(stream Data) returns (stream Response);
+};
