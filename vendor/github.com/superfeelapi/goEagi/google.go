@@ -33,6 +33,7 @@ type GoogleService struct {
 	languageCode   string
 	privateKeyPath string
 	enhancedMode   bool
+	domainModel    string
 	speechContext  []string
 	client         speechpb.Speech_StreamingRecognizeClient
 
@@ -63,6 +64,7 @@ func NewGoogleService(privateKeyPath string, languageCode string, speechContext 
 	for _, v := range supportedEnhancedMode() {
 		if v == languageCode {
 			g.enhancedMode = true
+			g.domainModel = domainModel
 			break
 		}
 	}
@@ -88,7 +90,7 @@ func NewGoogleService(privateKeyPath string, languageCode string, speechContext 
 					Encoding:        speechpb.RecognitionConfig_LINEAR16,
 					SampleRateHertz: sampleRate,
 					LanguageCode:    g.languageCode,
-					Model:           domainModel,
+					Model:           g.domainModel,
 					UseEnhanced:     g.enhancedMode,
 					SpeechContexts:  []*speechpb.SpeechContext{sc},
 				},
@@ -137,7 +139,6 @@ func (g *GoogleService) StartStreaming(ctx context.Context, stream <-chan []byte
 // SpeechToTextResponse sends the transcription response from Google's SpeechToText.
 func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleResult {
 	googleResultStream := make(chan GoogleResult, 5)
-	//t := time.Now()
 
 	go func() {
 		defer close(googleResultStream)
@@ -159,65 +160,6 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 					return
 				}
 
-				//if time.Since(t).Seconds() > 10 {
-				//	g.Lock()
-				//
-				//	googleResultStream <- GoogleResult{Info: fmt.Sprintf("before client address: %p", g.client)}
-				//
-				//	if err := g.client.CloseSend(); err != nil {
-				//		googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to close streaming client: %v", err)}
-				//		g.Unlock()
-				//		return
-				//	}
-				//
-				//	googleResultStream <- GoogleResult{Info: "Reinitializing Google's client"}
-				//
-				//	ctx := context.Background()
-				//
-				//	client, err := speech.NewClient(ctx)
-				//	if err != nil {
-				//		googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-				//		g.Unlock()
-				//		return
-				//	}
-				//
-				//	g.client, err = client.StreamingRecognize(ctx)
-				//	if err != nil {
-				//		googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-				//		g.Unlock()
-				//		return
-				//	}
-				//
-				//	sc := &speechpb.SpeechContext{Phrases: g.speechContext}
-				//
-				//	if err := g.client.Send(&speechpb.StreamingRecognizeRequest{
-				//		StreamingRequest: &speechpb.StreamingRecognizeRequest_StreamingConfig{
-				//			StreamingConfig: &speechpb.StreamingRecognitionConfig{
-				//				Config: &speechpb.RecognitionConfig{
-				//					Encoding:        speechpb.RecognitionConfig_LINEAR16,
-				//					SampleRateHertz: sampleRate,
-				//					LanguageCode:    g.languageCode,
-				//					Model:           domainModel,
-				//					UseEnhanced:     g.enhancedMode,
-				//					SpeechContexts:  []*speechpb.SpeechContext{sc},
-				//				},
-				//				InterimResults: true,
-				//			},
-				//		},
-				//	}); err != nil {
-				//		googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-				//		g.Unlock()
-				//		return
-				//	}
-				//
-				//	googleResultStream <- GoogleResult{Info: "Reinitialized!"}
-				//
-				//	googleResultStream <- GoogleResult{Info: fmt.Sprintf("after client address: %p", g.client)}
-				//	g.Unlock()
-				//
-				//	t = time.Now()
-				//}
-
 				if err := resp.Error; err != nil {
 					if err.Code == 3 || err.Code == 11 {
 						g.Lock()
@@ -233,7 +175,6 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 						googleResultStream <- GoogleResult{Info: "Reinitialized!"}
 
 						g.Unlock()
-						//t = time.Now()
 					}
 				}
 

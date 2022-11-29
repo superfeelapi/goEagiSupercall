@@ -198,8 +198,8 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
-github.com/superfeelapi/goEagi v1.0.21 h1:U1QFgdeaV4SvyDqGejLVK2Xi+9QXxpWYGxsdU1+3UPo=
-github.com/superfeelapi/goEagi v1.0.21/go.mod h1:nel61ES0HJ+hW3f9V66GO287eRsDDwcnSxu8LSVcIFc=
+github.com/superfeelapi/goEagi v1.0.3 h1:bnd4+dCfxcaoRMKGS55dVZxKbdSTxCxy4WHCjstKCKo=
+github.com/superfeelapi/goEagi v1.0.3/go.mod h1:nel61ES0HJ+hW3f9V66GO287eRsDDwcnSxu8LSVcIFc=
 github.com/superfeelapi/goVad v0.0.0-20220905105509-926b74456759 h1:t4ZlbSGCo+1GpF9RWqalJH7X5ysapOt50ALSg9HwMYk=
 github.com/superfeelapi/goVad v0.0.0-20220905105509-926b74456759/go.mod h1:ddyHIAsVAtTgajAgoMaMlDTh0GCN4pxwv512kgan1yc=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
