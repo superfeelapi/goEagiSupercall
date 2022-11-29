@@ -5,31 +5,20 @@ import (
 	"io"
 	"time"
 
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/goVad"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 	pb "github.com/superfeelapi/goVad/proto"
-	"github.com/superfeelapi/goVoicebot/foundation/external/goVad"
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
 )
 
 func (w *Worker) goVadOperation() {
 	w.logger.Infow("worker: goVadOperation: G started")
 	defer w.logger.Infow("worker: goVadOperation: G completed")
+
 	defer w.state.Set(state.GoVad, false)
 
-	vadSub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(vadToGrpcTopic, vadSub)
-	defer w.broker.UnSubscribe(vadToGrpcTopic, vadSub)
+	sessionID := <-w.idCh
 
-	vadCh := vadSub.GetChannel()
-
-	idSub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(sessionIDFromSupercallTopic, idSub)
-	defer w.broker.UnSubscribe(sessionIDFromSupercallTopic, idSub)
-
-	idCh := idSub.GetChannel()
-	sessionID := <-idCh
-
-	grpc := goVad.New(w.config.GrpcAddress, w.config.GrpcCertFilePath, w.config.Actor, w.config.AgiID, sessionID.(string))
+	grpc := goVad.New(w.config.GrpcAddress, w.config.GrpcCertFilePath, w.config.Actor, w.config.AgiID, sessionID)
 	err := grpc.SetupConnection()
 	if err != nil {
 		w.logger.Errorw("worker: goVadOperation", "ERROR", err)
@@ -82,13 +71,14 @@ func (w *Worker) goVadOperation() {
 		}
 	}()
 
+	w.logger.Infow("worker: goVadOperation: G listening")
 	for {
 		select {
-		case vad := <-vadCh:
+		case vad := <-w.grpcCh:
 			err := stream.Send(&pb.Data{
 				Source:   w.config.Actor,
 				AgiId:    w.config.AgiID,
-				Detected: vad.(bool),
+				Detected: vad,
 			})
 			if err != nil {
 				w.logger.Errorw("worker: goVadOperation", "ERROR", err)

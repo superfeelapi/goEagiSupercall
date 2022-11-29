@@ -1,43 +1,32 @@
 package worker
 
 import (
-	"github.com/superfeelapi/goVoicebot/foundation/external/wauchat"
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/wauchat"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 func (w *Worker) wauchatOperation() {
 	w.logger.Infow("worker: wauchatOperation: G started")
 	defer w.logger.Infow("worker: wauchatOperation: G completed")
+
 	defer w.state.Set(state.Wauchat, false)
+	defer close(w.wauchatCh)
 
-	sub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(transcriptionToWauchatTopic, sub)
-	defer w.broker.UnSubscribe(transcriptionToWauchatTopic, sub)
-
-	dataCh := sub.GetChannel()
-
+	w.logger.Infow("worker: wauchatOperation: G listening")
 	for {
 		select {
-		case transcription := <-dataCh:
+		case transcription := <-w.wauchatTranscriptCh:
 			if !w.state.Get(state.Wauchat) {
 				return
 			}
 			go func() {
-				w.logger.Infow("worker: wauchatOperation: requesting wauchat API")
-
-				resp, err := wauchat.TextEmotion(w.config.WauchatEndpoint, transcription.(string))
+				resp, err := wauchat.TextEmotion(w.config.WauchatEndpoint, transcription)
 				if err != nil {
 					w.logger.Errorw("worker: wauchatOperation", "ERROR", err)
 					return
 				}
-				w.logger.Infow("worker: wauchatOperation: requested wauchat API", "response", resp)
-
-				err = w.broker.Publish(emotionFromWauchatTopic, resp)
-				if err != nil {
-					w.Shutdown(err)
-					return
-				}
+				w.wauchatCh <- resp
+				w.logger.Infow("worker: wauchatOperation:", "text emotion", resp)
 			}()
 
 		case <-w.shut:

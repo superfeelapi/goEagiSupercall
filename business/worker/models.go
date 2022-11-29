@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"github.com/superfeelapi/goEagi/v2"
+	"github.com/superfeelapi/goEagi"
 	"go.uber.org/zap"
 )
 
@@ -15,6 +15,7 @@ type Config struct {
 	Actor                    string
 	AgiID                    string
 	ExtensionID              string
+	CampaignName             string
 	Language                 string
 	GrpcAddress              string
 	GrpcCertFilePath         string

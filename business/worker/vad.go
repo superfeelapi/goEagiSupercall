@@ -3,33 +3,33 @@ package worker
 import (
 	"time"
 
-	"github.com/superfeelapi/goEagi/v2"
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
+	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 func (w *Worker) vadOperation() {
 	w.logger.Infow("worker: vadOperation: G started")
 	defer w.logger.Infow("worker: vadOperation: G completed")
 
-	sub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(audioTopic, sub)
-	defer w.broker.UnSubscribe(audioTopic, sub)
+	defer close(w.audioPathCh)
+	defer close(w.grpcCh)
 
-	dataCh := sub.GetChannel()
+	audioDir := w.config.AudioDir + w.config.CampaignName + "/"
 
 	var latestFrame []byte
 	var speechFrame []byte
 	var isSpeech bool
 
-	timer := time.Now()
+	startTime := time.Now()
+	endTime := time.Duration(1) * time.Second
 
+	w.logger.Infow("worker: vadOperation: G listening")
 	for {
 		select {
-		case audio := <-dataCh:
-			latestFrame = append(latestFrame, audio.([]byte)...)
+		case audio := <-w.toVadCh:
+			latestFrame = append(latestFrame, audio...)
 
-			if time.Since(timer).Seconds() > 1 {
+			if time.Since(startTime) > endTime {
 				amp, err := goEagi.ComputeAmplitude(latestFrame)
 				if err != nil {
 					w.Shutdown(err)
@@ -39,46 +39,34 @@ func (w *Worker) vadOperation() {
 				switch amp > w.config.AmplitudeThreshold {
 
 				case true:
+					if w.state.Get(state.GoVad) {
+						w.grpcCh <- true
+					}
 					isSpeech = true
 					speechFrame = append(speechFrame, latestFrame...)
 
-					if w.state.Get(state.GoVad) {
-						err = w.broker.Publish(vadToGrpcTopic, true)
-						if err != nil {
-							w.Shutdown(err)
-							return
-						}
-					}
-
 				case false:
-					err = w.broker.Publish(vadToGrpcTopic, false)
-					if err != nil {
-						w.Shutdown(err)
-						return
+					if w.state.Get(state.GoVad) {
+						w.grpcCh <- false
 					}
-
 					if isSpeech {
 						if w.state.Get(state.Voicebot) {
 							audioFile := createAudioFile(w.config.AgiID)
-							audioFilepath, err := goEagi.GenerateAudio(speechFrame, w.config.AudioDir, audioFile)
+							audioFilepath, err := goEagi.GenerateAudio(speechFrame, audioDir, audioFile)
 							if err != nil {
 								w.Shutdown(err)
 								return
 							}
 
-							err = w.broker.Publish(audioPathFromVadTopic, audioFilepath)
-							if err != nil {
-								w.Shutdown(err)
-								return
-							}
-
-							speechFrame = nil
-							isSpeech = false
+							w.audioPathCh <- audioFilepath
+							w.logger.Infow("worker: vadOperation: SENT AUDIO FILE")
 						}
+						speechFrame = nil
+						isSpeech = false
 					}
 				}
 				latestFrame = nil
-				timer = time.Now()
+				startTime = time.Now()
 			}
 
 		case <-w.shut:

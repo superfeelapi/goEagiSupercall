@@ -11,8 +11,8 @@ func NewQueue() *Queue {
 }
 
 func (q *Queue) Dequeue() (Result, error) {
-	if len(q.data) < 0 {
-		return Result{}, errors.New("empty")
+	if len(q.data) < 1 {
+		return Result{}, errors.New("wauchat emotion queue is empty")
 	}
 	get := q.data[0]
 	q.data = q.data[1:]

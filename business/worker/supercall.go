@@ -5,42 +5,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/superfeelapi/goVoicebot/foundation/external/supercall"
-	"github.com/superfeelapi/goVoicebot/foundation/external/voicebot"
-	"github.com/superfeelapi/goVoicebot/foundation/external/wauchat"
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 func (w *Worker) supercallOperation() {
 	w.logger.Infow("worker: supercallOperation: G started")
 	defer w.logger.Infow("worker: supercallOperation: G completed")
 
-	paceSub := pubsub.NewSubscriber(10)
-	w.broker.Subscribe(transcriptionPaceTopic, paceSub)
-	defer w.broker.UnSubscribe(transcriptionPaceTopic, paceSub)
-
-	interimTranscriptionSub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(interimTranscriptionToSupercallTopic, interimTranscriptionSub)
-	defer w.broker.UnSubscribe(interimTranscriptionToSupercallTopic, interimTranscriptionSub)
-
-	fullTranscriptionSub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(fullTranscriptionToSupercallTopic, fullTranscriptionSub)
-	defer w.broker.UnSubscribe(fullTranscriptionToSupercallTopic, fullTranscriptionSub)
-
-	textEmotionSub := pubsub.NewSubscriber(10)
-	w.broker.Subscribe(emotionFromWauchatTopic, textEmotionSub)
-	defer w.broker.UnSubscribe(emotionFromWauchatTopic, textEmotionSub)
-
-	voiceEmotionSub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(emotionFromVoicebotTopic, voiceEmotionSub)
-	defer w.broker.UnSubscribe(emotionFromVoicebotTopic, voiceEmotionSub)
-
-	paceCh := paceSub.GetChannel()
-	interimTranscriptionCh := interimTranscriptionSub.GetChannel()
-	fullTranscriptionCh := fullTranscriptionSub.GetChannel()
-	textEmotionCh := textEmotionSub.GetChannel()
-	voiceEmotionCh := voiceEmotionSub.GetChannel()
+	defer close(w.idCh)
+	defer close(w.wauchatQueueCh)
 
 	s := supercall.New(w.config.SupercallApiEndpoint)
 	err := s.SetupConnection()
@@ -49,11 +23,7 @@ func (w *Worker) supercallOperation() {
 		return
 	}
 
-	err = w.broker.Publish(sessionIDFromSupercallTopic, s.GetSessionID())
-	if err != nil {
-		w.Shutdown(err)
-		return
-	}
+	w.idCh <- s.GetSessionID()
 
 	err = s.SendData(supercall.AgiEvent, supercall.AgiData{
 		Source:      w.config.Actor,
@@ -69,8 +39,8 @@ func (w *Worker) supercallOperation() {
 	defer keepAlive.Stop()
 
 	dataID := createDataId()
-	emotions := wauchat.NewQueue()
 
+	w.logger.Infow("worker: supercallOperation: G listening")
 	for {
 		select {
 		case <-keepAlive.C:
@@ -80,40 +50,45 @@ func (w *Worker) supercallOperation() {
 				return
 			}
 
-		case transcription := <-interimTranscriptionCh:
+		case transcription := <-w.interimTranscriptCh:
 			go func() {
 				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
 					Source:        w.config.Actor,
 					AgiId:         w.config.AgiID,
 					ExtensionId:   w.config.ExtensionID,
 					DataId:        dataID("transcription"),
-					Transcription: transcription.(string),
+					Transcription: transcription,
+					Interim:       false,
+				})
+				if err != nil {
+					w.Shutdown(err)
+					return
+				}
+				w.logger.Infow("worker: supercallOperation: sent interim transcription")
+			}()
+
+		case transcription := <-w.fullTranscriptCh:
+			w.logger.Infow("worker: supercallOperation: sending full transcription")
+			go func() {
+				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
+					Source:        w.config.Actor,
+					AgiId:         w.config.AgiID,
+					ExtensionId:   w.config.ExtensionID,
+					DataId:        dataID("transcription"),
+					Transcription: transcription,
 					Interim:       true,
 				})
 				if err != nil {
 					w.Shutdown(err)
 					return
 				}
+				w.logger.Infow("worker: supercallOperation: sent full transcription")
 			}()
 
-		case transcription := <-fullTranscriptionCh:
-			err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
-				Source:        w.config.Actor,
-				AgiId:         w.config.AgiID,
-				ExtensionId:   w.config.ExtensionID,
-				DataId:        dataID("transcription"),
-				Transcription: transcription.(string),
-				Interim:       false,
-			})
-			if err != nil {
-				w.Shutdown(err)
-				return
-			}
-
-		case textEmotion := <-textEmotionCh:
+		case textEmotion := <-w.wauchatCh:
 			go func() {
 				if w.state.Get(state.Voicebot) {
-					emotions.Enqueue(textEmotion.(wauchat.Result))
+					w.wauchatQueueCh <- textEmotion
 				} else {
 					err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
 						Source:      w.config.Actor,
@@ -121,10 +96,10 @@ func (w *Worker) supercallOperation() {
 						ExtensionId: w.config.ExtensionID,
 						DataId:      dataID("emotion"),
 						TextData: supercall.TextEmotionData{
-							TextEmotion:           textEmotion.(wauchat.Result).Emotion.Result,
-							TextEmotionConfidence: textEmotion.(wauchat.Result).Emotion.Confidence,
-							TextContext:           textEmotion.(wauchat.Result).Context.Result,
-							TextContextConfidence: textEmotion.(wauchat.Result).Context.Confidence,
+							TextEmotion:           textEmotion.Emotion.Result,
+							TextEmotionConfidence: textEmotion.Emotion.Confidence,
+							TextContext:           textEmotion.Context.Result,
+							TextContextConfidence: textEmotion.Context.Confidence,
 						},
 						VoiceData: nil,
 					})
@@ -132,21 +107,20 @@ func (w *Worker) supercallOperation() {
 						w.Shutdown(err)
 						return
 					}
+					w.logger.Infow("worker: supercallOperation: sent text emotion")
 				}
 			}()
 
-		case voiceEmotion := <-voiceEmotionCh:
+		case voiceEmotion := <-w.voicebotCh:
+			w.logger.Infow("worker: supercallOperation: PROCESSING EMOTIONS")
 			go func() {
-				pace := <-paceCh
-				paceState := computePaceState(pace.(int), voiceEmotion.(voicebot.Result).AudioLength)
+				pace := <-w.paceTranscriptCh
+				paceState := computePaceState(pace, voiceEmotion.AudioLength)
 
 				if w.state.Get(state.Wauchat) {
-					textEmotion, err := emotions.Dequeue()
-					if err != nil {
-						w.Shutdown(err)
-						return
-					}
+					textEmotion := <-w.wauchatQueueCh
 
+					w.logger.Infow("worker: supercallOperation: sending both text and voice emotions")
 					switch w.config.Actor {
 					case "agent":
 						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
@@ -161,7 +135,7 @@ func (w *Worker) supercallOperation() {
 								TextContextConfidence: textEmotion.Context.Confidence,
 							},
 							VoiceData: &supercall.VoiceEmotionData{
-								VoiceAmplitude: voiceEmotion.(voicebot.Result).Amplitude[0].State,
+								VoiceAmplitude: voiceEmotion.Amplitude[0].State,
 								VoicePace:      paceState,
 							},
 						})
@@ -183,9 +157,9 @@ func (w *Worker) supercallOperation() {
 								TextContextConfidence: textEmotion.Context.Confidence,
 							},
 							VoiceData: &supercall.VoiceEmotionData{
-								VoiceEmotion:           voiceEmotion.(voicebot.Result).Emotion[0].Result,
-								VoiceEmotionConfidence: voiceEmotion.(voicebot.Result).Emotion[0].Confidence,
-								VoiceAmplitude:         voiceEmotion.(voicebot.Result).Amplitude[0].State,
+								VoiceEmotion:           voiceEmotion.Emotion[0].Result,
+								VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
+								VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
 								VoicePace:              paceState,
 							},
 						})
@@ -194,7 +168,10 @@ func (w *Worker) supercallOperation() {
 							return
 						}
 					}
+					w.logger.Infow("worker: supercallOperation: sent both text and voice emotions")
+
 				} else {
+					w.logger.Infow("worker: supercallOperation: sending voice emotion")
 					switch w.config.Actor {
 					case "agent":
 						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
@@ -204,7 +181,7 @@ func (w *Worker) supercallOperation() {
 							DataId:      dataID("emotion"),
 							TextData:    supercall.TextEmotionData{},
 							VoiceData: &supercall.VoiceEmotionData{
-								VoiceAmplitude: voiceEmotion.(voicebot.Result).Amplitude[0].State,
+								VoiceAmplitude: voiceEmotion.Amplitude[0].State,
 								VoicePace:      paceState,
 							},
 						})
@@ -221,9 +198,9 @@ func (w *Worker) supercallOperation() {
 							DataId:      dataID("emotion"),
 							TextData:    supercall.TextEmotionData{},
 							VoiceData: &supercall.VoiceEmotionData{
-								VoiceEmotion:           voiceEmotion.(voicebot.Result).Emotion[0].Result,
-								VoiceEmotionConfidence: voiceEmotion.(voicebot.Result).Emotion[0].Confidence,
-								VoiceAmplitude:         voiceEmotion.(voicebot.Result).Amplitude[0].State,
+								VoiceEmotion:           voiceEmotion.Emotion[0].Result,
+								VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
+								VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
 								VoicePace:              paceState,
 							},
 						})
@@ -232,6 +209,7 @@ func (w *Worker) supercallOperation() {
 							return
 						}
 					}
+					w.logger.Infow("worker: supercallOperation: sent voice emotion")
 				}
 			}()
 

@@ -3,29 +3,16 @@ package worker
 import (
 	"sync"
 
-	"github.com/superfeelapi/goEagi/v2"
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
+	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/voicebot"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/wauchat"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 	"go.uber.org/zap"
-)
-
-const (
-	audioTopic                           = "audio"
-	transcriptionPaceTopic               = "transcription-pace"
-	transcriptionToWauchatTopic          = "transcription-wauchat"
-	interimTranscriptionToSupercallTopic = "interim-transcription-supercall"
-	fullTranscriptionToSupercallTopic    = "full-transcription-supercall"
-	emotionFromWauchatTopic              = "emotion-wauchat"
-	emotionFromVoicebotTopic             = "emotion-voicebot"
-	audioPathFromVadTopic                = "audio-path"
-	vadToGrpcTopic                       = "vad-grpc"
-	sessionIDFromSupercallTopic          = "id-supercall"
 )
 
 type Worker struct {
 	config Config
 	state  *state.State
-	broker *pubsub.Broker
 	logger *zap.SugaredLogger
 
 	google *goEagi.GoogleService
@@ -33,16 +20,41 @@ type Worker struct {
 	wg    sync.WaitGroup
 	shut  chan struct{}
 	error chan error
+
+	toGoogleCh          chan []byte
+	toVadCh             chan []byte
+	interimTranscriptCh chan string
+	fullTranscriptCh    chan string
+	wauchatTranscriptCh chan string
+	paceTranscriptCh    chan int
+	audioPathCh         chan string
+	wauchatCh           chan wauchat.Result
+	wauchatQueueCh      chan wauchat.Result
+	voicebotCh          chan voicebot.Result
+	grpcCh              chan bool
+	idCh                chan string
 }
 
 func Run(s Settings) <-chan error {
 	w := &Worker{
-		google: s.Google,
-		state:  state.NewState(),
-		logger: s.Logger,
-		broker: pubsub.NewBroker(),
-		shut:   make(chan struct{}),
-		error:  make(chan error),
+		config:              s.Config,
+		state:               state.NewState(),
+		logger:              s.Logger,
+		google:              s.Google,
+		shut:                make(chan struct{}),
+		error:               make(chan error),
+		toGoogleCh:          make(chan []byte),
+		toVadCh:             make(chan []byte),
+		interimTranscriptCh: make(chan string, 10),
+		fullTranscriptCh:    make(chan string),
+		wauchatTranscriptCh: make(chan string),
+		paceTranscriptCh:    make(chan int, 10),
+		audioPathCh:         make(chan string),
+		wauchatCh:           make(chan wauchat.Result),
+		wauchatQueueCh:      make(chan wauchat.Result, 10),
+		voicebotCh:          make(chan voicebot.Result),
+		grpcCh:              make(chan bool),
+		idCh:                make(chan string),
 	}
 
 	operations := []func(){
@@ -79,6 +91,7 @@ func (w *Worker) Shutdown(err error) {
 	w.logger.Infow("worker: shutdown: started")
 	defer w.logger.Infow("worker: shutdown: completed")
 
+	w.logger.Errorw("worker: shutdown", "ERROR", err)
 	w.logger.Infow("worker: shutdown: terminate goroutines")
 	close(w.shut)
 

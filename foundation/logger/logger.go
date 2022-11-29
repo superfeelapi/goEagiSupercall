@@ -8,12 +8,17 @@ import (
 )
 
 func New(logDirectory string, campaignID string, actor string) (*zap.SugaredLogger, error) {
-	logPath := logDirectory + campaignID + "/" + actor + ".log"
+	campaignDirectory := logDirectory + campaignID
+	logPath := campaignDirectory + "/" + actor + ".log"
 
-	if _, err := os.Stat(logPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(logPath, 0755); err != nil {
+	if _, err := os.Stat(campaignDirectory); os.IsNotExist(err) {
+		if err := os.MkdirAll(campaignDirectory, os.ModePerm); err != nil {
 			return nil, err
 		}
+	}
+
+	_, err := os.OpenFile(logPath, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
 		return nil, err
 	}
 

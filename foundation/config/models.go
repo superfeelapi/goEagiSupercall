@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	Eagi []Project `json:"config"`
+	Eagi []Project `json:"eagi"`
 }
 
 type Project struct {

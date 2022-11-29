@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func GetCampaign(eagiConfigPath string, campaignID, boundType string) (Campaign, error) {
+func GetCampaign(eagiConfigPath string, campaignID string) (Campaign, error) {
 	file, err := os.Open(eagiConfigPath)
 	if err != nil {
 		return Campaign{}, err
@@ -24,7 +24,6 @@ func GetCampaign(eagiConfigPath string, campaignID, boundType string) (Campaign,
 	if err := json.Unmarshal(bytes, &config); err != nil {
 		return Campaign{}, err
 	}
-
 	campaign, exists := campaignExists(config.Eagi, campaignID)
 	if !exists {
 		return Campaign{}, fmt.Errorf("campaign[%s] does not exist", campaignID)

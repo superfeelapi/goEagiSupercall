@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/ardanlabs/conf/v3"
-	"github.com/superfeelapi/goEagi/v2"
-	"github.com/superfeelapi/goVoicebot/business/worker"
-	"github.com/superfeelapi/goVoicebot/foundation/config"
-	"github.com/superfeelapi/goVoicebot/foundation/logger"
+	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/business/worker"
+	"github.com/superfeelapi/goEagiSupercall/foundation/config"
+	"github.com/superfeelapi/goEagiSupercall/foundation/logger"
 )
 
 var (
@@ -47,14 +47,14 @@ func main() {
 		}
 		Voicebot struct {
 			ApiKey                       string `conf:"default:777,noprint"`
-			agentVoiceEmotionEndpoint    string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=none,noprint"`
-			customerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
+			AgentVoiceEmotionEndpoint    string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=none,noprint"`
+			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
 		}
 		Wauchat struct {
 			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:5000/predict_multi/,noprint"`
 		}
 		Logger struct {
-			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/"`
+			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`
 		}
 		Vad struct {
 			AudioDir           string  `conf:"default:/tmp/goEagi/"`
@@ -67,8 +67,14 @@ func main() {
 		},
 	}
 
+	// Configuration Parsing
+	_, err := conf.Parse("", &cfg)
+	if err != nil {
+		os.Exit(1)
+	}
+
 	// =================================================================================================================
-	// Set Actor and Displaying Purpose
+	// Set Actor and Version Checking Support
 
 	cfg.Eagi.Actor = actor
 
@@ -91,10 +97,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg.Eagi.ExtensionID = eagi.Env["arg_1"]
-	cfg.Eagi.AgiID = eagi.Env["arg_2"]
-	cfg.Eagi.CampaignID = eagi.Env["arg_3"]
-	cfg.Eagi.BoundType = eagi.Env["arg_4"]
+	cfg.Eagi.ExtensionID = strings.TrimSpace(eagi.Env["arg_1"])
+	cfg.Eagi.AgiID = strings.TrimSpace(eagi.Env["arg_2"])
+	cfg.Eagi.CampaignID = strings.TrimSpace(eagi.Env["arg_3"])
+	cfg.Eagi.BoundType = strings.TrimSpace(eagi.Env["arg_4"])
 
 	// =================================================================================================================
 	// Application Logger
@@ -107,20 +113,15 @@ func main() {
 	defer log.Sync()
 
 	// =================================================================================================================
-	// Campaign Configuration
+	// Set Campaign Configuration
 
-	cfg.Eagi.CampaignConfig, err = config.GetCampaign(cfg.Eagi.ConfigFilePath, cfg.Eagi.CampaignID, cfg.Eagi.BoundType)
+	cfg.Eagi.CampaignConfig, err = config.GetCampaign(cfg.Eagi.ConfigFilePath, cfg.Eagi.CampaignID)
 	if err != nil {
 		log.Panicw("startup", "ERROR", err)
 	}
 
 	// =================================================================================================================
-	// Configuration Parsing and Stringify
-
-	_, err = conf.Parse("", &cfg)
-	if err != nil {
-		log.Panicw("startup", "ERROR", err)
-	}
+	// Configuration Stringify
 
 	out, err := conf.String(&cfg)
 	if err != nil {
@@ -134,7 +135,7 @@ func main() {
 	languageCode := config.GetLanguageCode(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType)
 	speechContext := config.GetSpeechContext(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType)
 
-	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, languageCode, nil, speechContext)
+	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, languageCode, speechContext)
 	if err != nil {
 		log.Panicw("startup", "ERROR", err)
 	}
@@ -149,13 +150,14 @@ func main() {
 			Actor:                    strings.ToLower(cfg.Eagi.Actor),
 			AgiID:                    cfg.Eagi.AgiID,
 			ExtensionID:              cfg.Eagi.ExtensionID,
+			CampaignName:             cfg.Eagi.CampaignConfig.Name,
 			Language:                 config.GetLanguage(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType),
 			GrpcAddress:              cfg.GoVad.GrpcAddress,
 			GrpcCertFilePath:         cfg.GoVad.CertFilePath,
 			SupercallApiEndpoint:     cfg.Supercall.ApiEndpoint,
 			VoicebotApiKey:           cfg.Voicebot.ApiKey,
-			VoicebotAgentEndpoint:    cfg.Voicebot.agentVoiceEmotionEndpoint,
-			VoicebotCustomerEndpoint: cfg.Voicebot.customerVoiceEmotionEndpoint,
+			VoicebotAgentEndpoint:    cfg.Voicebot.AgentVoiceEmotionEndpoint,
+			VoicebotCustomerEndpoint: cfg.Voicebot.CustomerVoiceEmotionEndpoint,
 			WauchatEndpoint:          cfg.Wauchat.TextEmotionEndpoint,
 			AudioDir:                 cfg.Vad.AudioDir,
 			AmplitudeThreshold:       cfg.Vad.AmplitudeThreshold,

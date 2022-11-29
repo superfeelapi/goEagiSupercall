@@ -28,7 +28,7 @@ func NewState() *State {
 
 func (s *State) Get(svc Service) bool {
 	s.RLock()
-	defer s.Unlock()
+	defer s.RUnlock()
 	{
 		switch svc {
 		case Voicebot:

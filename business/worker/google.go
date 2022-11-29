@@ -5,55 +5,42 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/superfeelapi/goVoicebot/foundation/pubsub"
-	"github.com/superfeelapi/goVoicebot/foundation/state"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 func (w *Worker) speech2TextOperation() {
 	w.logger.Infow("worker: speech2TextOperation: G started")
 	defer w.logger.Infow("worker: speech2TextOperation: G completed")
 
-	sub := pubsub.NewSubscriber(0)
-	w.broker.Subscribe(audioTopic, sub)
-	defer w.broker.UnSubscribe(audioTopic, sub)
+	defer close(w.interimTranscriptCh)
+	defer close(w.fullTranscriptCh)
+	defer close(w.wauchatTranscriptCh)
+	defer close(w.paceTranscriptCh)
 
-	dataCh := sub.GetChannel()
-	toGoogleCh := make(chan []byte)
-
-	errCh := w.google.StartStreaming(context.Background(), toGoogleCh)
+	errCh := w.google.StartStreaming(context.Background(), w.toGoogleCh)
 	googleCh := w.google.SpeechToTextResponse(context.Background())
 
+	w.logger.Infow("worker: speech2TextOperation: G listening")
 	for {
 		select {
-		case audio := <-dataCh:
-			toGoogleCh <- audio.([]byte)
-
 		case google := <-googleCh:
 			go func() {
 				transcription := google.Result.Alternatives[0].Transcript
+				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", google.Result.IsFinal)
 
 				switch google.Result.IsFinal {
 				case false:
-					if err := w.broker.Publish(interimTranscriptionToSupercallTopic, transcription); err != nil {
-						w.Shutdown(err)
-						return
-					}
+					w.interimTranscriptCh <- transcription
 
 				case true:
-					if err := w.broker.Publish(fullTranscriptionToSupercallTopic, transcription); err != nil {
-						w.Shutdown(err)
-						return
-					}
+					w.fullTranscriptCh <- transcription
 
 					if w.state.Get(state.Wauchat) {
-						if err := w.broker.Publish(transcriptionToWauchatTopic, transcription); err != nil {
-							w.Shutdown(err)
-							return
-						}
+						w.wauchatTranscriptCh <- transcription
 					}
-					if err := w.broker.Publish(transcriptionPaceTopic, transcriptionLength(w.config.Language, transcription)); err != nil {
-						w.Shutdown(err)
-						return
+
+					if w.state.Get(state.Voicebot) {
+						w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcription)
 					}
 				}
 			}()
