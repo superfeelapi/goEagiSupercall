@@ -49,7 +49,6 @@ func (w *Worker) goVadOperation() {
 		return
 	}
 
-	w.logger.Infow("worker: goVadOperation: G listening")
 	go func() {
 		for {
 			select {

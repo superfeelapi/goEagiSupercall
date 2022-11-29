@@ -32,7 +32,10 @@ func main() {
 			ExtensionID    string
 			BoundType      string
 			CampaignID     string
-			CampaignConfig config.Campaign
+			CampaignName   string
+			Language       string
+			LanguageCode   string
+			SpeechContext  []string
 			ConfigFilePath string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
 		}
 		Google struct {
@@ -115,29 +118,31 @@ func main() {
 	// =================================================================================================================
 	// Set Campaign Configuration
 
-	cfg.Eagi.CampaignConfig, err = config.GetCampaign(cfg.Eagi.ConfigFilePath, cfg.Eagi.CampaignID)
+	campaignConfig, err := config.GetCampaign(cfg.Eagi.ConfigFilePath, cfg.Eagi.CampaignID)
 	if err != nil {
-		log.Panicw("startup", "ERROR", err)
+		log.Errorw("startup", "ERROR", err)
 	}
+
+	cfg.Eagi.CampaignName = config.GetCampaignName(campaignConfig)
+	cfg.Eagi.Language = config.GetLanguage(campaignConfig, cfg.Eagi.BoundType)
+	cfg.Eagi.LanguageCode = config.GetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
+	cfg.Eagi.SpeechContext = config.GetSpeechContext(campaignConfig, cfg.Eagi.BoundType)
 
 	// =================================================================================================================
 	// Configuration Stringify
 
 	out, err := conf.String(&cfg)
 	if err != nil {
-		log.Panicw("startup", "ERROR", err)
+		log.Errorw("startup", "ERROR", err)
 	}
 	log.Infow("startup", "config", out)
 
 	// =================================================================================================================
 	// Google Speech2Text
 
-	languageCode := config.GetLanguageCode(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType)
-	speechContext := config.GetSpeechContext(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType)
-
-	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, languageCode, speechContext)
+	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, cfg.Eagi.LanguageCode, cfg.Eagi.SpeechContext)
 	if err != nil {
-		log.Panicw("startup", "ERROR", err)
+		log.Errorw("startup", "ERROR", err)
 	}
 
 	// =================================================================================================================
@@ -150,8 +155,8 @@ func main() {
 			Actor:                    strings.ToLower(cfg.Eagi.Actor),
 			AgiID:                    cfg.Eagi.AgiID,
 			ExtensionID:              cfg.Eagi.ExtensionID,
-			CampaignName:             cfg.Eagi.CampaignConfig.Name,
-			Language:                 config.GetLanguage(cfg.Eagi.CampaignConfig, cfg.Eagi.BoundType),
+			CampaignName:             cfg.Eagi.CampaignName,
+			Language:                 cfg.Eagi.Language,
 			GrpcAddress:              cfg.GoVad.GrpcAddress,
 			GrpcCertFilePath:         cfg.GoVad.CertFilePath,
 			SupercallApiEndpoint:     cfg.Supercall.ApiEndpoint,
@@ -171,6 +176,6 @@ func main() {
 	defer log.Infow("shutdown", "status", "shutdown complete")
 
 	if err != nil {
-		log.Panicw("shutdown", "ERROR", err)
+		log.Errorw("shutdown", "ERROR", err)
 	}
 }

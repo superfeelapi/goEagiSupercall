@@ -32,6 +32,10 @@ func GetCampaign(eagiConfigPath string, campaignID string) (Campaign, error) {
 	return campaign, nil
 }
 
+func GetCampaignName(c Campaign) string {
+	return c.Name
+}
+
 func GetLanguage(c Campaign, boundType string) string {
 	switch boundType {
 	case "inbound":
