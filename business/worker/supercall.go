@@ -6,7 +6,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
-	"github.com/superfeelapi/goEagiSupercall/foundation/state"
+)
+
+const (
+	interimTranscriptionID = "interimTranscription"
+	fullTranscriptionID    = "fullTranscription"
+	TextEmotionID          = "textEmotion"
+	voiceEmotionID         = "voiceEmotion"
 )
 
 func (w *Worker) supercallOperation() {
@@ -16,6 +22,7 @@ func (w *Worker) supercallOperation() {
 	defer close(w.idCh)
 	defer close(w.wauchatQueueCh)
 
+	// Initialize Supercall's connection
 	s := supercall.New(w.config.SupercallApiEndpoint)
 	err := s.SetupConnection()
 	if err != nil {
@@ -35,10 +42,12 @@ func (w *Worker) supercallOperation() {
 		return
 	}
 
+	// Keeping the connection alive
 	keepAlive := time.NewTicker(10 * time.Second)
 	defer keepAlive.Stop()
 
-	dataID := createDataId()
+	// DataID generation
+	dataID := createDataID()
 
 	w.logger.Infow("worker: supercallOperation: G listening")
 	for {
@@ -56,7 +65,7 @@ func (w *Worker) supercallOperation() {
 					Source:        w.config.Actor,
 					AgiId:         w.config.AgiID,
 					ExtensionId:   w.config.ExtensionID,
-					DataId:        dataID("transcription"),
+					DataId:        dataID(interimTranscriptionID),
 					Transcription: transcription,
 					Interim:       false,
 				})
@@ -64,7 +73,6 @@ func (w *Worker) supercallOperation() {
 					w.Shutdown(err)
 					return
 				}
-				w.logger.Infow("worker: supercallOperation: sent interim transcription")
 			}()
 
 		case transcription := <-w.fullTranscriptCh:
@@ -74,7 +82,7 @@ func (w *Worker) supercallOperation() {
 					Source:        w.config.Actor,
 					AgiId:         w.config.AgiID,
 					ExtensionId:   w.config.ExtensionID,
-					DataId:        dataID("transcription"),
+					DataId:        dataID(fullTranscriptionID),
 					Transcription: transcription,
 					Interim:       true,
 				})
@@ -86,131 +94,61 @@ func (w *Worker) supercallOperation() {
 			}()
 
 		case textEmotion := <-w.wauchatCh:
+			w.logger.Infow("worker: supercallOperation: sending text emotion")
 			go func() {
-				if w.state.Get(state.Voicebot) {
-					w.wauchatQueueCh <- textEmotion
-				} else {
-					err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
-						Source:      w.config.Actor,
-						AgiId:       w.config.AgiID,
-						ExtensionId: w.config.ExtensionID,
-						DataId:      dataID("emotion"),
-						TextData: supercall.TextEmotionData{
-							TextEmotion:           textEmotion.Emotion.Result,
-							TextEmotionConfidence: textEmotion.Emotion.Confidence,
-							TextContext:           textEmotion.Context.Result,
-							TextContextConfidence: textEmotion.Context.Confidence,
-						},
-						VoiceData: nil,
+				err := s.SendData(supercall.TextEmotionEvent, supercall.TextEmotionData{
+					Source:                w.config.Actor,
+					AgiId:                 w.config.AgiID,
+					ExtensionId:           w.config.ExtensionID,
+					DataId:                dataID(TextEmotionID),
+					TextEmotion:           textEmotion.Emotion.Result,
+					TextEmotionConfidence: textEmotion.Emotion.Confidence,
+					TextContext:           textEmotion.Context.Result,
+					TextContextConfidence: textEmotion.Context.Confidence,
+				})
+				if err != nil {
+					w.Shutdown(err)
+					return
+				}
+				w.logger.Infow("worker: supercallOperation: sent text emotion")
+			}()
+
+		case voiceEmotion := <-w.voicebotCh:
+			w.logger.Infow("worker: supercallOperation: sending voice emotion")
+			go func() {
+				pace := <-w.paceTranscriptCh
+				paceState := computePaceState(pace, voiceEmotion.AudioLength)
+
+				switch w.config.Actor {
+				case "agent":
+					err := s.SendData(supercall.VoiceEmotionEvent, supercall.VoiceEmotionData{
+						Source:         w.config.Actor,
+						AgiId:          w.config.AgiID,
+						ExtensionId:    w.config.ExtensionID,
+						DataId:         dataID(voiceEmotionID),
+						VoiceAmplitude: voiceEmotion.Amplitude[0].State,
+						VoicePace:      paceState,
 					})
 					if err != nil {
 						w.Shutdown(err)
 						return
 					}
-					w.logger.Infow("worker: supercallOperation: sent text emotion")
-				}
-			}()
 
-		case voiceEmotion := <-w.voicebotCh:
-			w.logger.Infow("worker: supercallOperation: PROCESSING EMOTIONS")
-			go func() {
-				pace := <-w.paceTranscriptCh
-				paceState := computePaceState(pace, voiceEmotion.AudioLength)
-
-				if w.state.Get(state.Wauchat) {
-					textEmotion := <-w.wauchatQueueCh
-
-					w.logger.Infow("worker: supercallOperation: sending both text and voice emotions")
-					switch w.config.Actor {
-					case "agent":
-						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
-							Source:      w.config.Actor,
-							AgiId:       w.config.AgiID,
-							ExtensionId: w.config.ExtensionID,
-							DataId:      dataID("emotion"),
-							TextData: supercall.TextEmotionData{
-								TextEmotion:           textEmotion.Emotion.Result,
-								TextEmotionConfidence: textEmotion.Emotion.Confidence,
-								TextContext:           textEmotion.Context.Result,
-								TextContextConfidence: textEmotion.Context.Confidence,
-							},
-							VoiceData: &supercall.VoiceEmotionData{
-								VoiceAmplitude: voiceEmotion.Amplitude[0].State,
-								VoicePace:      paceState,
-							},
-						})
-						if err != nil {
-							w.Shutdown(err)
-							return
-						}
-
-					case "customer":
-						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
-							Source:      w.config.Actor,
-							AgiId:       w.config.AgiID,
-							ExtensionId: w.config.ExtensionID,
-							DataId:      dataID("emotion"),
-							TextData: supercall.TextEmotionData{
-								TextEmotion:           textEmotion.Emotion.Result,
-								TextEmotionConfidence: textEmotion.Emotion.Confidence,
-								TextContext:           textEmotion.Context.Result,
-								TextContextConfidence: textEmotion.Context.Confidence,
-							},
-							VoiceData: &supercall.VoiceEmotionData{
-								VoiceEmotion:           voiceEmotion.Emotion[0].Result,
-								VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
-								VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
-								VoicePace:              paceState,
-							},
-						})
-						if err != nil {
-							w.Shutdown(err)
-							return
-						}
+				case "customer":
+					err := s.SendData(supercall.VoiceEmotionEvent, supercall.VoiceEmotionData{
+						Source:                 w.config.Actor,
+						AgiId:                  w.config.AgiID,
+						ExtensionId:            w.config.ExtensionID,
+						DataId:                 dataID(voiceEmotionID),
+						VoiceEmotion:           voiceEmotion.Emotion[0].Result,
+						VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
+					})
+					if err != nil {
+						w.Shutdown(err)
+						return
 					}
-					w.logger.Infow("worker: supercallOperation: sent both text and voice emotions")
-
-				} else {
-					w.logger.Infow("worker: supercallOperation: sending voice emotion")
-					switch w.config.Actor {
-					case "agent":
-						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
-							Source:      w.config.Actor,
-							AgiId:       w.config.AgiID,
-							ExtensionId: w.config.ExtensionID,
-							DataId:      dataID("emotion"),
-							TextData:    supercall.TextEmotionData{},
-							VoiceData: &supercall.VoiceEmotionData{
-								VoiceAmplitude: voiceEmotion.Amplitude[0].State,
-								VoicePace:      paceState,
-							},
-						})
-						if err != nil {
-							w.Shutdown(err)
-							return
-						}
-
-					case "customer":
-						err := s.SendData(supercall.EmotionEvent, supercall.TextAndVoiceEmotionData{
-							Source:      w.config.Actor,
-							AgiId:       w.config.AgiID,
-							ExtensionId: w.config.ExtensionID,
-							DataId:      dataID("emotion"),
-							TextData:    supercall.TextEmotionData{},
-							VoiceData: &supercall.VoiceEmotionData{
-								VoiceEmotion:           voiceEmotion.Emotion[0].Result,
-								VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
-								VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
-								VoicePace:              paceState,
-							},
-						})
-						if err != nil {
-							w.Shutdown(err)
-							return
-						}
-					}
-					w.logger.Infow("worker: supercallOperation: sent voice emotion")
 				}
+				w.logger.Infow("worker: supercallOperation: sent voice emotion")
 			}()
 
 		case <-w.shut:
@@ -222,26 +160,60 @@ func (w *Worker) supercallOperation() {
 
 // =================================================================================================================
 
-func createDataId() func(event string) string {
-	var ids []string
+func createDataID() func(event string) string {
+	ids := NewDataIDs()
 
 	return func(event string) string {
-		if event == "transcription" && len(ids) > 0 {
-			return ids[0]
+		switch event {
+		case "interimTranscription":
+			return ids.Peek(event)
+
+		case "fullTranscription":
+			id := ids.Dequeue(event)
+			_ = ids.Dequeue("interimTranscription")
+			ids.CreateNewID()
+			return id
+
+		default:
+			return ids.Dequeue(event)
 		}
-
-		if event == "transcription" {
-			generateId := uuid.New().String()
-			ids = append(ids, generateId)
-			return generateId
-		}
-
-		getID := ids[0]
-		ids = ids[1:]
-
-		return getID
 	}
 }
+
+type DataIDs struct {
+	elements map[string][]string
+}
+
+func NewDataIDs() *DataIDs {
+	generateId := uuid.New().String()
+	d := DataIDs{
+		elements: map[string][]string{
+			interimTranscriptionID: {generateId},
+			fullTranscriptionID:    {generateId},
+			TextEmotionID:          {generateId},
+			voiceEmotionID:         {generateId},
+		},
+	}
+	return &d
+}
+
+func (d *DataIDs) CreateNewID() {
+	generateId := uuid.New().String()
+	for i, _ := range d.elements {
+		d.elements[i] = append(d.elements[i], generateId)
+	}
+}
+
+func (d *DataIDs) Dequeue(event string) string {
+	getElement := d.elements[event][0]
+	d.elements[event] = d.elements[event][1:]
+	return getElement
+}
+func (d *DataIDs) Peek(event string) string {
+	return d.elements[event][0]
+}
+
+// =================================================================================================================
 
 // computePaceState returns word per minute and state which based on speech rate guidelines.
 func computePaceState(transcriptionLength int, audioSecond float64) string {

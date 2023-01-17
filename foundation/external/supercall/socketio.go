@@ -17,10 +17,11 @@ type Event string
 const (
 	apiTimeout = 5
 
-	AgiEvent        Event = "sendAgiData"
-	TranscriptEvent Event = "sendTranscriptionApi"
-	EmotionEvent    Event = "sendEmotionApi"
-	KeepAliveEvent  Event = "keepAlive"
+	AgiEvent          Event = "sendAgiData"
+	TranscriptEvent   Event = "sendTranscriptionApi"
+	TextEmotionEvent  Event = "sendTextEmotionApi"
+	VoiceEmotionEvent Event = "sendVoiceEmotionApi"
+	KeepAliveEvent    Event = "keepAlive"
 )
 
 type Polling struct {

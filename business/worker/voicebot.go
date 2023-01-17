@@ -5,7 +5,7 @@ import (
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
-func (w *Worker) voicebotOperation() {
+func (w *Worker) voiceEmotionOperation() {
 	w.logger.Infow("worker: voicebotOperation: G started")
 	defer w.logger.Infow("worker: voicebotOperation: G completed")
 

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	apiTimeout = 3
+	apiTimeout = 2
 )
 
 func TextEmotion(apiEndpoint string, text string) (Result, error) {
