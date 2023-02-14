@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -11,19 +12,20 @@ import (
 )
 
 const (
-	apiTimeout = 2
+	apiTimeout = 15
 )
 
 func TextEmotion(apiEndpoint string, text string) (Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout*time.Second)
 	defer cancel()
 
-	preprocessEndpoint := apiEndpoint + preprocessText(text)
+	payload := strings.NewReader("text=" + preprocessText(text))
 
-	req, err := http.NewRequest(http.MethodGet, preprocessEndpoint, nil)
+	req, err := http.NewRequest(http.MethodPost, apiEndpoint, payload)
 	if err != nil {
 		return Result{}, err
 	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	req = req.WithContext(ctx)
 	client := http.Client{}
@@ -34,13 +36,13 @@ func TextEmotion(apiEndpoint string, text string) (Result, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusInternalServerError {
-		return Result{}, errors.New("internal server error 500")
-	}
-
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Result{}, err
+	}
+
+	if resp.StatusCode == http.StatusInternalServerError {
+		return Result{}, errors.New(fmt.Sprintf("internal server error 500: %s", string(bytes)))
 	}
 
 	if resp.StatusCode != http.StatusOK {

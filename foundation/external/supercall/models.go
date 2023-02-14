@@ -12,7 +12,7 @@ type TranscriptionData struct {
 	ExtensionId   string `json:"extension_id"`
 	DataId        string `json:"data_id"`
 	Transcription string `json:"transcription"`
-	Interim       bool   `json:"interim"`
+	IsFinal       bool   `json:"isFinal"`
 }
 
 type TextEmotionData struct {
@@ -22,8 +22,6 @@ type TextEmotionData struct {
 	DataId                string  `json:"data_id"`
 	TextEmotion           string  `json:"text_emotion"`
 	TextEmotionConfidence float64 `json:"text_emotion_confidence"`
-	TextContext           string  `json:"text_context"`
-	TextContextConfidence float64 `json:"text_context_confidence"`
 }
 
 type VoiceEmotionData struct {

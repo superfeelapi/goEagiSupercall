@@ -54,7 +54,7 @@ func main() {
 			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
 		}
 		Wauchat struct {
-			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:5000/predict_multi/,noprint"`
+			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
 		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`

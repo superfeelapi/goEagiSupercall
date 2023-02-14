@@ -67,7 +67,7 @@ func (w *Worker) supercallOperation() {
 					ExtensionId:   w.config.ExtensionID,
 					DataId:        dataID(interimTranscriptionID),
 					Transcription: transcription,
-					Interim:       false,
+					IsFinal:       false,
 				})
 				if err != nil {
 					w.Shutdown(err)
@@ -84,7 +84,7 @@ func (w *Worker) supercallOperation() {
 					ExtensionId:   w.config.ExtensionID,
 					DataId:        dataID(fullTranscriptionID),
 					Transcription: transcription,
-					Interim:       true,
+					IsFinal:       true,
 				})
 				if err != nil {
 					w.Shutdown(err)
@@ -101,10 +101,8 @@ func (w *Worker) supercallOperation() {
 					AgiId:                 w.config.AgiID,
 					ExtensionId:           w.config.ExtensionID,
 					DataId:                dataID(TextEmotionID),
-					TextEmotion:           textEmotion.Emotion.Result,
-					TextEmotionConfidence: textEmotion.Emotion.Confidence,
-					TextContext:           textEmotion.Context.Result,
-					TextContextConfidence: textEmotion.Context.Confidence,
+					TextEmotion:           textEmotion.Class,
+					TextEmotionConfidence: textEmotion.Confidence,
 				})
 				if err != nil {
 					w.Shutdown(err)
