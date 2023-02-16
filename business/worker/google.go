@@ -25,6 +25,14 @@ func (w *Worker) speech2TextOperation() {
 		select {
 		case google := <-googleCh:
 			go func() {
+				if google.Error != nil {
+					w.Shutdown(google.Error)
+				}
+
+				if google.Info != "" {
+					w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info", google.Info)
+				}
+
 				transcription := google.Result.Alternatives[0].Transcript
 				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", google.Result.IsFinal)
 

@@ -43,7 +43,7 @@ func Run(s Settings) <-chan error {
 		google:              s.Google,
 		shut:                make(chan struct{}),
 		error:               make(chan error),
-		toGoogleCh:          make(chan []byte),
+		toGoogleCh:          make(chan []byte, 1000),
 		toVadCh:             make(chan []byte),
 		interimTranscriptCh: make(chan string, 10),
 		fullTranscriptCh:    make(chan string),
@@ -53,7 +53,7 @@ func Run(s Settings) <-chan error {
 		wauchatCh:           make(chan wauchat.Result),
 		wauchatQueueCh:      make(chan wauchat.Result, 10),
 		voicebotCh:          make(chan voicebot.Result),
-		grpcCh:              make(chan bool),
+		grpcCh:              make(chan bool, 10),
 		idCh:                make(chan string),
 	}
 
