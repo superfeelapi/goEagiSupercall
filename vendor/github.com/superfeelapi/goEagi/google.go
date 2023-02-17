@@ -22,9 +22,10 @@ const (
 )
 
 type GoogleResult struct {
-	Result *speechpb.StreamingRecognitionResult
-	Info   string
-	Error  error
+	Result        *speechpb.StreamingRecognitionResult
+	Info          string
+	Error         error
+	Reinitialized bool
 }
 
 // GoogleService provides information to Google Speech Recognizer
@@ -163,8 +164,11 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 				if err := resp.Error; err != nil {
 					if err.Code == 3 || err.Code == 11 {
 						g.Lock()
-						googleResultStream <- GoogleResult{Info: resp.Error.Message}
-						googleResultStream <- GoogleResult{Info: "Reinitializing Google's client"}
+						googleResultStream <- GoogleResult{
+							Info:          fmt.Sprintf("%s: %s", resp.Error.Message, "Reinitializing Google's client"),
+							Reinitialized: true,
+							Result:        resp.Results[0],
+						}
 
 						if err := g.ReinitializeClient(); err != nil {
 							googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
@@ -175,6 +179,7 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 						googleResultStream <- GoogleResult{Info: "Reinitialized!"}
 
 						g.Unlock()
+						continue
 					}
 				}
 

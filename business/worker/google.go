@@ -3,8 +3,10 @@ package worker
 import (
 	"context"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
+	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
@@ -21,37 +23,69 @@ func (w *Worker) speech2TextOperation() {
 	googleCh := w.google.SpeechToTextResponse(context.Background())
 
 	w.logger.Infow("worker: speech2TextOperation: G listening")
+
+	var transcription string
+	var isFinal bool
+	var m sync.RWMutex
+
 	for {
 		select {
 		case google := <-googleCh:
-			go func() {
+			go func(google goEagi.GoogleResult, m *sync.RWMutex) {
 				if google.Error != nil {
 					w.Shutdown(google.Error)
 				}
 
-				if google.Info != "" {
+				if google.Info != "" && !google.Reinitialized {
 					w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info", google.Info)
+					return
 				}
 
-				transcription := google.Result.Alternatives[0].Transcript
-				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", google.Result.IsFinal)
+				if google.Result != nil && google.Result.Alternatives != nil {
+					m.Lock()
+					transcription = google.Result.Alternatives[0].Transcript
+					isFinal = google.Result.IsFinal
+					m.Unlock()
+				}
 
-				switch google.Result.IsFinal {
-				case false:
-					w.interimTranscriptCh <- transcription
+				if google.Reinitialized {
+					w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info[Reinitialization]", google.Info)
 
-				case true:
-					w.fullTranscriptCh <- transcription
+					if !isFinal {
+						if isStringNotEmpty(transcription) {
+							w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", true)
+							w.fullTranscriptCh <- transcription
 
-					if w.state.Get(state.Wauchat) {
-						w.wauchatTranscriptCh <- transcription
+							if w.state.Get(state.Wauchat) {
+								w.wauchatTranscriptCh <- transcription
+							}
+
+							if w.state.Get(state.Voicebot) {
+								w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcription)
+							}
+						}
 					}
 
-					if w.state.Get(state.Voicebot) {
-						w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcription)
+				} else {
+					switch google.Result.IsFinal {
+					case false:
+						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", google.Result.IsFinal)
+						w.interimTranscriptCh <- transcription
+
+					case true:
+						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcription, "isFinal", google.Result.IsFinal)
+						w.fullTranscriptCh <- transcription
+
+						if w.state.Get(state.Wauchat) {
+							w.wauchatTranscriptCh <- transcription
+						}
+
+						if w.state.Get(state.Voicebot) {
+							w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcription)
+						}
 					}
 				}
-			}()
+			}(google, &m)
 
 		case err := <-errCh:
 			w.Shutdown(err)
@@ -77,4 +111,13 @@ func transcriptionLength(language string, s string) int {
 	default:
 		return len(strings.Split(s, " "))
 	}
+}
+
+func isStringNotEmpty(input string) bool {
+	for _, char := range input {
+		if char != ' ' && char != '\t' && char != '\n' {
+			return true
+		}
+	}
+	return false
 }

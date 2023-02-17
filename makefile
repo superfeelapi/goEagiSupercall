@@ -43,7 +43,7 @@ audit:
 current_time = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 git_description = $(shell git describe --always --dirty --tags --long)
 
-## config/agent: build agent binary
+## eagi/agent: build agent binary
 .PHONY: eagi/agent
 eagi/agent:
 	env GOOS=linux GOARCH=amd64 \
@@ -54,7 +54,7 @@ eagi/agent:
 			-X main.buildTime=${current_time}" \
 			./app/goEagi/
 
-## config/customer: build customer binary
+## eagi/customer: build customer binary
 .PHONY: eagi/customer
 eagi/customer:
 	env GOOS=linux GOARCH=amd64 \
@@ -64,3 +64,21 @@ eagi/customer:
 			-X main.version=${git_description} \
 			-X main.buildTime=${current_time}" \
 			./app/goEagi/
+
+## eagi/both: build agent & customer binaries
+.PHONY: eagi/both
+eagi/both:
+	env GOOS=linux GOARCH=amd64 \
+    		go build -o ./app/goEagi/${git_description}/Agent \
+    			-ldflags "-s -w \
+    			-X main.actor=agent \
+    			-X main.version=${git_description} \
+    			-X main.buildTime=${current_time}" \
+    			./app/goEagi/
+	env GOOS=linux GOARCH=amd64 \
+    		go build -o ./app/goEagi/${git_description}/Customer \
+    			-ldflags "-s -w \
+    			-X main.actor=customer \
+    			-X main.version=${git_description} \
+    			-X main.buildTime=${current_time}" \
+    			./app/goEagi/
