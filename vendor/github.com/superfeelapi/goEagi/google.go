@@ -168,7 +168,7 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 				var exceed bool
 
 				m.Lock()
-				if time.Since(t).Seconds() > 15 {
+				if time.Since(t).Seconds() > 240 {
 					exceed = true
 					t = time.Now()
 				}
@@ -194,24 +194,22 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 				}
 
 				if err := resp.Error; err != nil {
-					if err.Code == 3 || err.Code == 11 {
-						googleResultStream <- GoogleResult{
-							Info:          fmt.Sprintf("%s: %s", resp.Error.Message, "Reinitializing Google's client"),
-							Reinitialized: true,
-						}
-
-						g.Lock()
-						if err := g.ReinitializeClient(); err != nil {
-							googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-							g.Unlock()
-							return
-						}
-
-						googleResultStream <- GoogleResult{Info: "Reinitialized!"}
-
-						g.Unlock()
-						continue
+					googleResultStream <- GoogleResult{
+						Info:          fmt.Sprintf("%s", "Reinitializing Google's client"),
+						Reinitialized: true,
 					}
+
+					g.Lock()
+					if err := g.ReinitializeClient(); err != nil {
+						googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
+						g.Unlock()
+						return
+					}
+
+					googleResultStream <- GoogleResult{Info: "Reinitialized!"}
+
+					g.Unlock()
+					continue
 				}
 
 				for _, result := range resp.Results {
