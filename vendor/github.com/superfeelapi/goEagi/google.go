@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	speech "cloud.google.com/go/speech/apiv1"
 	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
@@ -141,7 +142,10 @@ func (g *GoogleService) StartStreaming(ctx context.Context, stream <-chan []byte
 func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleResult {
 	googleResultStream := make(chan GoogleResult, 5)
 
-	go func() {
+	t := time.Now()
+	m := &sync.Mutex{}
+
+	go func(m *sync.Mutex) {
 		defer close(googleResultStream)
 
 		for {
@@ -161,15 +165,42 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 					return
 				}
 
+				var exceed bool
+
+				m.Lock()
+				if time.Since(t).Seconds() > 15 {
+					exceed = true
+					t = time.Now()
+				}
+				m.Unlock()
+
+				if exceed {
+					googleResultStream <- GoogleResult{
+						Info:          fmt.Sprintf("%s", "Reinitializing Google's client"),
+						Reinitialized: true,
+					}
+
+					g.Lock()
+					if err := g.ReinitializeClient(); err != nil {
+						googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
+						g.Unlock()
+						return
+					}
+
+					googleResultStream <- GoogleResult{Info: "Reinitialized!"}
+
+					g.Unlock()
+					continue
+				}
+
 				if err := resp.Error; err != nil {
 					if err.Code == 3 || err.Code == 11 {
-						g.Lock()
 						googleResultStream <- GoogleResult{
 							Info:          fmt.Sprintf("%s: %s", resp.Error.Message, "Reinitializing Google's client"),
 							Reinitialized: true,
-							Result:        resp.Results[0],
 						}
 
+						g.Lock()
 						if err := g.ReinitializeClient(); err != nil {
 							googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
 							g.Unlock()
@@ -188,7 +219,7 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 				}
 			}
 		}
-	}()
+	}(m)
 
 	return googleResultStream
 }
