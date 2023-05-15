@@ -1,5 +1,9 @@
 package supercall
 
+type AuthorizationData struct {
+	Token string `json:"token"`
+}
+
 type AgiData struct {
 	Source      string `json:"source"`
 	AgiId       string `json:"agi_id"`

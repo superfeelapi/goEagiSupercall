@@ -16,12 +16,14 @@ type Event string
 
 const (
 	apiTimeout = 5
+	apiToken   = "TxbA20O4S0KO"
 
-	AgiEvent          Event = "sendAgiData"
-	TranscriptEvent   Event = "sendTranscriptionApi"
-	TextEmotionEvent  Event = "sendTextEmotionApi"
-	VoiceEmotionEvent Event = "sendVoiceEmotionApi"
-	KeepAliveEvent    Event = "keepAlive"
+	authorizationEvent Event = "tellOnline"
+	AgiEvent           Event = "sendAgiData"
+	TranscriptEvent    Event = "sendTranscriptionApi"
+	TextEmotionEvent   Event = "sendTextEmotionApi"
+	VoiceEmotionEvent  Event = "sendVoiceEmotionApi"
+	KeepAliveEvent     Event = "keepAlive"
 )
 
 type Polling struct {
@@ -90,6 +92,10 @@ func (p *Polling) SetupConnection() error {
 	}
 
 	if err := p.keepConnection(); err != nil {
+		return err
+	}
+
+	if err := p.SendData(authorizationEvent, AuthorizationData{Token: apiToken}); err != nil {
 		return err
 	}
 
