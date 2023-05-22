@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -19,7 +20,10 @@ func TextEmotion(apiEndpoint string, text string) (Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout*time.Second)
 	defer cancel()
 
-	payload := strings.NewReader("text=" + preprocessText(text))
+	params := url.Values{}
+	params.Add("text", text)
+
+	payload := strings.NewReader(params.Encode())
 
 	req, err := http.NewRequest(http.MethodPost, apiEndpoint, payload)
 	if err != nil {
@@ -55,8 +59,4 @@ func TextEmotion(apiEndpoint string, text string) (Result, error) {
 	}
 
 	return r, nil
-}
-
-func preprocessText(text string) string {
-	return strings.Replace(text, " ", "%20", -1)
 }

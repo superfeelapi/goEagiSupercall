@@ -60,6 +60,8 @@ func (p *Polling) SendData(e Event, d interface{}) error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
+	req.Header.Add("Authorization", apiToken)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -114,6 +116,8 @@ func (p *Polling) establishHandshake() error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
+	req.Header.Add("Authorization", apiToken)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -162,6 +166,8 @@ func (p *Polling) upgradeWebsocket() error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
+	req.Header.Add("Authorization", apiToken)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -195,6 +201,8 @@ func (p *Polling) keepConnection() error {
 
 	req = req.WithContext(ctx)
 	client := http.Client{}
+
+	req.Header.Add("Authorization", apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
