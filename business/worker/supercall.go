@@ -138,6 +138,8 @@ func (w *Worker) supercallOperation() {
 						AgiId:                  w.config.AgiID,
 						ExtensionId:            w.config.ExtensionID,
 						DataId:                 dataID(voiceEmotionID),
+						VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
+						VoicePace:              paceState,
 						VoiceEmotion:           voiceEmotion.Emotion[0].Result,
 						VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
 					})
