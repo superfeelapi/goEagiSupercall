@@ -27,16 +27,18 @@ func main() {
 	cfg := struct {
 		conf.Version
 		Eagi struct {
-			AgiID          string
-			Actor          string
-			ExtensionID    string
-			BoundType      string
-			CampaignID     string
-			CampaignName   string
-			Language       string
-			LanguageCode   string
-			SpeechContext  []string
-			ConfigFilePath string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
+			AgiID              string
+			Actor              string
+			ExtensionID        string
+			BoundType          string
+			CampaignID         string
+			CampaignName       string
+			Language           string
+			LanguageCode       string
+			TargetLanguageCode string
+			Translation        bool
+			SpeechContext      []string
+			ConfigFilePath     string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
 		}
 		Google struct {
 			PrivateKeyPath string `conf:"default:/var/lib/asterisk/agi-bin/boxwood-pilot-299014-769b582bc376.json,noprint"`
@@ -127,6 +129,8 @@ func main() {
 	cfg.Eagi.Language = config.GetLanguage(campaignConfig, cfg.Eagi.BoundType)
 	cfg.Eagi.LanguageCode = config.GetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
 	cfg.Eagi.SpeechContext = config.GetSpeechContext(campaignConfig, cfg.Eagi.BoundType)
+	cfg.Eagi.TargetLanguageCode = config.GetTargetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
+	cfg.Eagi.Translation = config.IsTranslationEnabled(campaignConfig, cfg.Eagi.BoundType)
 
 	// =================================================================================================================
 	// Configuration Stringify
@@ -157,6 +161,10 @@ func main() {
 			ExtensionID:              cfg.Eagi.ExtensionID,
 			CampaignName:             cfg.Eagi.CampaignName,
 			Language:                 cfg.Eagi.Language,
+			Translation:              cfg.Eagi.Translation,
+			SourceLanguageCode:       cfg.Eagi.LanguageCode,
+			TargetLanguageCode:       cfg.Eagi.TargetLanguageCode,
+			GooglePrivateKeyPath:     cfg.Google.PrivateKeyPath,
 			GrpcAddress:              cfg.GoVad.GrpcAddress,
 			GrpcCertFilePath:         cfg.GoVad.CertFilePath,
 			SupercallApiEndpoint:     cfg.Supercall.ApiEndpoint,

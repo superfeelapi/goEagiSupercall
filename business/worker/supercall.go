@@ -61,13 +61,24 @@ func (w *Worker) supercallOperation() {
 
 		case transcription := <-w.interimTranscriptCh:
 			go func() {
+				var translatedTranscription string
+				if w.isTranslationEnabled {
+					var err error
+
+					translatedTranscription, err = w.translation.Translate(transcription)
+					if err != nil {
+						w.logger.Errorw("worker: supercallOperation: translation", "ERROR", err)
+					}
+				}
 				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
-					Source:        w.config.Actor,
-					AgiId:         w.config.AgiID,
-					ExtensionId:   w.config.ExtensionID,
-					DataId:        dataID(interimTranscriptionID),
-					Transcription: transcription,
-					IsFinal:       false,
+					Source:                  w.config.Actor,
+					AgiId:                   w.config.AgiID,
+					ExtensionId:             w.config.ExtensionID,
+					DataId:                  dataID(interimTranscriptionID),
+					Transcription:           transcription,
+					TranslationEnabled:      w.isTranslationEnabled,
+					TranslatedTranscription: translatedTranscription,
+					IsFinal:                 false,
 				})
 				if err != nil {
 					w.Shutdown(err)
@@ -78,13 +89,25 @@ func (w *Worker) supercallOperation() {
 		case transcription := <-w.fullTranscriptCh:
 			w.logger.Infow("worker: supercallOperation: sending full transcription")
 			go func() {
+				var translatedTranscription string
+				if w.isTranslationEnabled {
+					var err error
+
+					translatedTranscription, err = w.translation.Translate(transcription)
+					if err != nil {
+						w.logger.Errorw("worker: supercallOperation: translation", "ERROR", err)
+					}
+				}
+
 				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
-					Source:        w.config.Actor,
-					AgiId:         w.config.AgiID,
-					ExtensionId:   w.config.ExtensionID,
-					DataId:        dataID(fullTranscriptionID),
-					Transcription: transcription,
-					IsFinal:       true,
+					Source:                  w.config.Actor,
+					AgiId:                   w.config.AgiID,
+					ExtensionId:             w.config.ExtensionID,
+					DataId:                  dataID(fullTranscriptionID),
+					Transcription:           transcription,
+					TranslationEnabled:      w.isTranslationEnabled,
+					TranslatedTranscription: translatedTranscription,
+					IsFinal:                 true,
 				})
 				if err != nil {
 					w.Shutdown(err)

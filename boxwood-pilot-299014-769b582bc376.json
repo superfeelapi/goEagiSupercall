@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "boxwood-pilot-299014",
+  "private_key_id": "769b582bc3768b401df5b88e392467a74b6dcf49",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDF61qEAD145O9c\n0kFxVRF/HeOOtLCLx+xIS4DqsZv/WK5nVRf+e+2YUhNeOjjASAej63A7NHgMslox\nYMmcV8nen5kO2qOIhqsXqC4KybA4FUQtMXPgeF71A97r7XqwujFmo/4yDam93CAy\nGRic6H9wr7TYZ4CY1+LNuUChMuwM7xpJJfFHEDUgqe2wJPq6P+JrzxsbSTLpDG1r\nBhkPsX2xUSndlqmJ6D9GHKnwcu624X6+s0dca58h/h+mX3q2d31Xia1Ou+AEEeDN\nY1Cs5wUlFh5kOV5+svYRgAf8DZAyFEDz071Oz5oNalKPtpa1rpA/2yPoxbhOPms1\n2/EH96v1AgMBAAECggEACcuVnb3TTQXrkMj5Iy5GIOfuSLRJnolk+Mj/1t22bkNJ\n0mRkPRyODEFXowy3nVCTTDoNQmjc3if/jb0QDVRM8d8tOI56lHmxwwh4SuFjfssS\npjfx17StYmvwHvYQYem9IyrPnFOPyI057LDQRoe9MusHRMSOmUHqACuAdtnp09P1\nQsTpRRHUdBZ/dB2X/IRLuSyRIZiIkH8Y9qjg+04VxdrJHumDZV5F9Wx52xvsEaLD\nKGlnKQl6RaR2mFuKy69Eh4QYSUi6cdLzsduP5JE2Em1XTC/ylVogG6TQRUmNgtUG\n3wHYBWqd750C0Q0j0fhzxI+LyBYmcWLF3bEELwGxSwKBgQDvfQ6hwB7poxJ2vo9b\nbNR8UVMCqhxuUOCt1roID/j9Wakbtd1h6cFJMqWPNJaKsQB8CiAMKCedf2J5vvUj\nxDhDFahzgHFA0zQ0I4qDjPEhgra+pnIt/M4n+PAyayuCN1qIborVMZhSZKHSA0i6\nkvtTPZrstQPySynxOcdlKwgpdwKBgQDTkJsdpY7zLXwIwKVcNKdTM+pzbqLeo1OH\n4DzIaTOU/JHrDnTdel9KFA/20LcVaDIp9TYrqQcCxSjUchRWI5xiVHUSZCxBnmKq\nRW5tYEciNmg8TQLqebVVZSqyKMCvMnHrqac46jfYE+Q2CVWty/ASgWrFECqL/26r\nl9omcJ4w8wKBgBEBwn4+FHPm/rKsCaYmblh9tfVkeyxiVfJCY2ebKsVjDp1HJveD\nEBTQoe0vgNlMhIpKdcgnOdj3aNjYdLQbhRtOeG3rWx+NYBGrzHRXF/CXRb74NveJ\nEmLITNZnwek3YRh7MSS+puCDAPLXBN0q/uoEX/IbULJuIAZfYgePLL81AoGBAMws\n8oZaEOt/KgUIZo3mAtW5dLqSO3zCAwtOzVpcrPtMBUbkXMSiJPRJCF8abpaqSD9V\n90GLjsiNninpLtcy5um+uH1XT57ETFQnTbsg/4V1HIOVjwrbCrWvPNVTnyF1fZwB\nzvCOmfZevA+qUpW4C6jQXUpxn54claHkmxQd+40hAoGAeInj0F/Nve3e/oLaZJb5\n2anuYupMc3J6e1lejYJEjwKppOKH66sqVuYsYRadX+AJAspm/i0Da/0wM7ZtutzT\nI1lSnE74dgAr3cVwc0N/V+ua0KD33+lgk6MHhBfnAPHKe8T+68W/I8WFXCfnOz4d\n1s97X2TX3wAC611Y87MUzcU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "speech-to-text@boxwood-pilot-299014.iam.gserviceaccount.com",
+  "client_id": "108180512077112849072",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/speech-to-text%40boxwood-pilot-299014.iam.gserviceaccount.com"
+}

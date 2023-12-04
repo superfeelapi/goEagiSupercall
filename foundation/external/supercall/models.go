@@ -11,12 +11,14 @@ type AgiData struct {
 }
 
 type TranscriptionData struct {
-	Source        string `json:"source"`
-	AgiId         string `json:"agi_id"`
-	ExtensionId   string `json:"extension_id"`
-	DataId        string `json:"data_id"`
-	Transcription string `json:"transcription"`
-	IsFinal       bool   `json:"isFinal"`
+	Source                  string `json:"source"`
+	AgiId                   string `json:"agi_id"`
+	ExtensionId             string `json:"extension_id"`
+	DataId                  string `json:"data_id"`
+	Transcription           string `json:"transcription"`
+	TranslationEnabled      bool   `json:"translation_enabled"`
+	TranslatedTranscription string `json:"translated_transcription"`
+	IsFinal                 bool   `json:"isFinal"`
 }
 
 type TextEmotionData struct {

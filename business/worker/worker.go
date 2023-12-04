@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/google"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/voicebot"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/wauchat"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
@@ -15,11 +16,14 @@ type Worker struct {
 	state  *state.State
 	logger *zap.SugaredLogger
 
-	google *goEagi.GoogleService
+	google      *goEagi.GoogleService
+	translation *google.Translation
 
 	wg    sync.WaitGroup
 	shut  chan struct{}
 	error chan error
+
+	isTranslationEnabled bool
 
 	toGoogleCh          chan []byte
 	toVadCh             chan []byte
@@ -37,24 +41,33 @@ type Worker struct {
 
 func Run(s Settings) <-chan error {
 	w := &Worker{
-		config:              s.Config,
-		state:               state.NewState(),
-		logger:              s.Logger,
-		google:              s.Google,
-		shut:                make(chan struct{}),
-		error:               make(chan error),
-		toGoogleCh:          make(chan []byte, 1000),
-		toVadCh:             make(chan []byte),
-		interimTranscriptCh: make(chan string, 10),
-		fullTranscriptCh:    make(chan string),
-		wauchatTranscriptCh: make(chan string, 10),
-		paceTranscriptCh:    make(chan int, 10),
-		audioPathCh:         make(chan string),
-		wauchatCh:           make(chan wauchat.Result),
-		wauchatQueueCh:      make(chan wauchat.Result, 10),
-		voicebotCh:          make(chan voicebot.Result),
-		grpcCh:              make(chan bool, 10),
-		idCh:                make(chan string),
+		config:               s.Config,
+		state:                state.NewState(),
+		logger:               s.Logger,
+		google:               s.Google,
+		isTranslationEnabled: s.Translation,
+		shut:                 make(chan struct{}),
+		error:                make(chan error),
+		toGoogleCh:           make(chan []byte, 1000),
+		toVadCh:              make(chan []byte),
+		interimTranscriptCh:  make(chan string, 10),
+		fullTranscriptCh:     make(chan string),
+		wauchatTranscriptCh:  make(chan string, 10),
+		paceTranscriptCh:     make(chan int, 10),
+		audioPathCh:          make(chan string),
+		wauchatCh:            make(chan wauchat.Result),
+		wauchatQueueCh:       make(chan wauchat.Result, 10),
+		voicebotCh:           make(chan voicebot.Result),
+		grpcCh:               make(chan bool, 10),
+		idCh:                 make(chan string),
+	}
+
+	if w.isTranslationEnabled {
+		translation, err := google.NewTranslation(s.GooglePrivateKeyPath, w.config.SourceLanguageCode, w.config.TargetLanguageCode)
+		if err != nil {
+			return w.error
+		}
+		w.translation = translation
 	}
 
 	operations := []func(){

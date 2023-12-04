@@ -17,6 +17,10 @@ type Config struct {
 	ExtensionID              string
 	CampaignName             string
 	Language                 string
+	Translation              bool
+	SourceLanguageCode       string
+	TargetLanguageCode       string
+	GooglePrivateKeyPath     string
 	GrpcAddress              string
 	GrpcCertFilePath         string
 	SupercallApiEndpoint     string

@@ -58,6 +58,28 @@ func GetLanguageCode(c Campaign, boundType string) string {
 	return ""
 }
 
+func IsTranslationEnabled(c Campaign, boundType string) bool {
+	switch boundType {
+	case "inbound":
+		return c.Inbound.Translation
+
+	case "outbound":
+		return c.Outbound.Translation
+	}
+	return false
+}
+
+func GetTargetLanguageCode(c Campaign, boundType string) string {
+	switch boundType {
+	case "inbound":
+		return c.Inbound.TargetedLanguageCode
+
+	case "outbound":
+		return c.Outbound.TargetedLanguageCode
+	}
+	return ""
+}
+
 func GetSpeechContext(c Campaign, boundType string) []string {
 	var scMap map[string]string
 	switch boundType {

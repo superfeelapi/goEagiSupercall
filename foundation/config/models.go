@@ -17,7 +17,9 @@ type Campaign struct {
 }
 
 type Bound struct {
-	LanguageCode  string            `json:"language_code"`
-	Language      string            `json:"language"`
-	SpeechContext map[string]string `json:"speech_context"`
+	LanguageCode         string            `json:"language_code"`
+	Language             string            `json:"language"`
+	Translation          bool              `json:"translation"`
+	TargetedLanguageCode string            `json:"targeted_language_code"`
+	SpeechContext        map[string]string `json:"speech_context"`
 }
