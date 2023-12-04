@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/translate v1.9.3
 	github.com/ardanlabs/conf/v3 v3.1.3
 	github.com/google/uuid v1.4.0
+	github.com/redis/go-redis/v9 v9.3.0
 	github.com/superfeelapi/goEagi v1.0.6
 	github.com/superfeelapi/goVad v0.0.0-20220905105509-926b74456759
 	go.uber.org/zap v1.23.0
@@ -19,7 +20,9 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/longrunning v0.5.2 // indirect
 	cloud.google.com/go/speech v1.19.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cryptix/wav v0.0.0-20180415113528-8bdace674401 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect

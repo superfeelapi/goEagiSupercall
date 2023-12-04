@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
+	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 const (
@@ -99,7 +100,7 @@ func (w *Worker) supercallOperation() {
 					}
 				}
 
-				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
+				data := supercall.TranscriptionData{
 					Source:                  w.config.Actor,
 					AgiId:                   w.config.AgiID,
 					ExtensionId:             w.config.ExtensionID,
@@ -108,12 +109,22 @@ func (w *Worker) supercallOperation() {
 					TranslationEnabled:      w.isTranslationEnabled,
 					TranslatedTranscription: translatedTranscription,
 					IsFinal:                 true,
-				})
+				}
+
+				err := s.SendData(supercall.TranscriptEvent, data)
 				if err != nil {
 					w.Shutdown(err)
 					return
 				}
 				w.logger.Infow("worker: supercallOperation: sent full transcription")
+
+				// ScamBot
+				if w.config.Actor == "customer" && w.state.Get(state.Redis) {
+					if err := w.redis.Produce(data); err != nil {
+						w.state.Set(state.Redis, false)
+						w.logger.Errorw("worker: supercallOperation: redis", "ERROR", err)
+					}
+				}
 			}()
 
 		case textEmotion := <-w.wauchatCh:

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 	"go.uber.org/zap"
 )
 
@@ -9,6 +10,7 @@ type Settings struct {
 	Config
 	Logger *zap.SugaredLogger
 	Google *goEagi.GoogleService
+	Redis  *redis.Redis
 }
 
 type Config struct {

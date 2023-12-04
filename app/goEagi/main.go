@@ -11,6 +11,7 @@ import (
 	"github.com/superfeelapi/goEagiSupercall/business/worker"
 	"github.com/superfeelapi/goEagiSupercall/foundation/config"
 	"github.com/superfeelapi/goEagiSupercall/foundation/logger"
+	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 )
 
 var (
@@ -57,6 +58,11 @@ func main() {
 		}
 		Wauchat struct {
 			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
+		}
+		Redis struct {
+			Address              string `conf:"default:redis-10106.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:10106"`
+			Password             string `conf:"default:dq1BygKhg4rtpmTBRlG3Rt3uh4oG0uPu"`
+			TranscriptionChannel string `conf:"default:scamBot:transcription"`
 		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`
@@ -150,11 +156,20 @@ func main() {
 	}
 
 	// =================================================================================================================
+	// Redis
+
+	redisClient, err := redis.New(cfg.Redis.Address, cfg.Redis.Password, cfg.Redis.TranscriptionChannel, log)
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+
+	// =================================================================================================================
 	// Run Worker
 
 	workerCh := worker.Run(worker.Settings{
 		Logger: log,
 		Google: google,
+		Redis:  redisClient,
 		Config: worker.Config{
 			Actor:                    strings.ToLower(cfg.Eagi.Actor),
 			AgiID:                    cfg.Eagi.AgiID,

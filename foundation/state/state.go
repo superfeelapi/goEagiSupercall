@@ -8,6 +8,7 @@ const (
 	Voicebot Service = iota
 	Wauchat
 	GoVad
+	Redis
 )
 
 type State struct {
@@ -16,6 +17,7 @@ type State struct {
 	Voicebot bool
 	Wauchat  bool
 	VadGrpc  bool
+	Redis    bool
 }
 
 func NewState() *State {
@@ -23,6 +25,7 @@ func NewState() *State {
 		Voicebot: true,
 		Wauchat:  true,
 		VadGrpc:  true,
+		Redis:    true,
 	}
 }
 
@@ -39,6 +42,9 @@ func (s *State) Get(svc Service) bool {
 
 		case GoVad:
 			return s.VadGrpc
+
+		case Redis:
+			return s.Redis
 		}
 	}
 	return false
@@ -57,6 +63,9 @@ func (s *State) Set(svc Service, state bool) {
 
 		case GoVad:
 			s.VadGrpc = state
+
+		case Redis:
+			s.Redis = state
 		}
 	}
 }
