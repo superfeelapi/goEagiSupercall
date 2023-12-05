@@ -119,7 +119,7 @@ func (w *Worker) supercallOperation() {
 				w.logger.Infow("worker: supercallOperation: sent full transcription")
 
 				// ScamBot
-				if w.config.Actor == "customer" && w.state.Get(state.Redis) {
+				if w.state.Get(state.Redis) {
 					if err := w.redis.Produce(data); err != nil {
 						w.state.Set(state.Redis, false)
 						w.logger.Errorw("worker: supercallOperation: redis", "ERROR", err)
