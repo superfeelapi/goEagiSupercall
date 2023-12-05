@@ -2,11 +2,14 @@ package worker
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 const (
 	agent    = "agent"
 	customer = "customer"
+
+	scamAudioName = "scamDetected"
 )
 
 func (w *Worker) scamDetectOperation() {
@@ -27,10 +30,12 @@ func (w *Worker) scamDetectOperation() {
 			}
 			if data.IsScam {
 				w.scamCh <- true
+				audioName := fmt.Sprintf("%s-%s", scamAudioName, w.config.SourceLanguageCode)
+
 				switch data.Source {
 				case agent:
 					if w.config.Actor == agent {
-						_, err := w.eagi.StreamFile("scamDetected", "en")
+						_, err := w.eagi.StreamFile(audioName, "en")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
@@ -38,7 +43,7 @@ func (w *Worker) scamDetectOperation() {
 
 				case customer:
 					if w.config.Actor == customer {
-						_, err := w.eagi.StreamFile("scamDetected", "en")
+						_, err := w.eagi.StreamFile(audioName, "en")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
