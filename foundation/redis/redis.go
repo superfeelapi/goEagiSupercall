@@ -13,9 +13,10 @@ type Redis struct {
 	Client               *redis.Client
 	Logger               *zap.SugaredLogger
 	TranscriptionChannel string
+	ScamBotChannel       string
 }
 
-func New(host, password, transcriptionChannel string, logger *zap.SugaredLogger) (*Redis, error) {
+func New(host, password, transcriptionChannel, scamBotChannel string, logger *zap.SugaredLogger) (*Redis, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     host,
 		Password: password,
@@ -30,7 +31,13 @@ func New(host, password, transcriptionChannel string, logger *zap.SugaredLogger)
 		Client:               client,
 		Logger:               logger,
 		TranscriptionChannel: transcriptionChannel,
+		ScamBotChannel:       scamBotChannel,
 	}, nil
+}
+
+func (r *Redis) ConsumeScamBotChannel() <-chan *redis.Message {
+	msgCh := r.Client.Subscribe(context.Background(), r.ScamBotChannel).Channel()
+	return msgCh
 }
 
 func (r *Redis) Produce(data interface{}) error {

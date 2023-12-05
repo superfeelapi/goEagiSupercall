@@ -25,7 +25,7 @@ func NewState() *State {
 		Voicebot: true,
 		Wauchat:  true,
 		VadGrpc:  true,
-		Redis:    false,
+		Redis:    true,
 	}
 }
 

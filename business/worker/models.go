@@ -11,6 +11,7 @@ type Settings struct {
 	Logger *zap.SugaredLogger
 	Google *goEagi.GoogleService
 	Redis  *redis.Redis
+	Eagi   *goEagi.Eagi
 }
 
 type Config struct {
@@ -32,4 +33,12 @@ type Config struct {
 	WauchatEndpoint          string
 	AudioDir                 string
 	AmplitudeThreshold       float64
+}
+
+// =====================================================================================================================
+
+type ScamData struct {
+	Source string `json:"source"`
+	AgiId  string `json:"agi_id"`
+	IsScam bool   `json:"is_scam"`
 }

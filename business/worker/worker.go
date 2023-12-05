@@ -20,6 +20,7 @@ type Worker struct {
 	google      *goEagi.GoogleService
 	translation *google.Translation
 	redis       *redis.Redis
+	eagi        *goEagi.Eagi
 
 	wg    sync.WaitGroup
 	shut  chan struct{}
@@ -49,6 +50,7 @@ func Run(s Settings) <-chan error {
 		google:               s.Google,
 		isTranslationEnabled: s.Translation,
 		redis:                s.Redis,
+		eagi:                 s.Eagi,
 		shut:                 make(chan struct{}),
 		error:                make(chan error),
 		toGoogleCh:           make(chan []byte, 1000),
@@ -73,7 +75,13 @@ func Run(s Settings) <-chan error {
 		w.translation = translation
 	}
 
-	operations := []func(){
+	operations := make([]func(), 8)
+
+	if w.state.Get(state.Redis) {
+		operations = append(operations, w.scamDetectOperation)
+	}
+
+	operations = append(operations, []func(){
 		w.vadOperation,
 		w.goVadOperation,
 		w.speech2TextOperation,
@@ -81,7 +89,7 @@ func Run(s Settings) <-chan error {
 		w.textEmotionOperation,
 		w.supercallOperation,
 		w.audioStreamOperation,
-	}
+	}...)
 
 	g := len(operations)
 	w.wg.Add(g)
