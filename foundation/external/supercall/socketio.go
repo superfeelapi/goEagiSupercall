@@ -23,6 +23,7 @@ const (
 	TranscriptEvent    Event = "sendTranscriptionApi"
 	TextEmotionEvent   Event = "sendTextEmotionApi"
 	VoiceEmotionEvent  Event = "sendVoiceEmotionApi"
+	ScamEvent          Event = "sendScamApi"
 	KeepAliveEvent     Event = "keepAlive"
 )
 

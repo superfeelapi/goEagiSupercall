@@ -40,3 +40,10 @@ type VoiceEmotionData struct {
 	VoiceAmplitude         string  `json:"voice_amplitude,omitempty"`
 	VoicePace              string  `json:"voice_pace,omitempty"`
 }
+
+type ScamData struct {
+	Source      string `json:"source"`
+	AgiId       string `json:"agi_id"`
+	ExtensionId string `json:"extension_id"`
+	IsScam      bool   `json:"is_scam"`
+}

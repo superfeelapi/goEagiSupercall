@@ -26,6 +26,7 @@ func (w *Worker) scamDetectOperation() {
 				return
 			}
 			if data.IsScam {
+				w.scamCh <- true
 				switch data.Source {
 				case agent:
 					if w.config.Actor == agent {
