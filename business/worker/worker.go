@@ -77,7 +77,7 @@ func Run(s Settings) <-chan error {
 		w.translation = translation
 	}
 
-	operations := make([]func(), 8)
+	operations := make([]func(), 0)
 
 	if w.state.Get(state.Redis) {
 		operations = append(operations, w.scamDetectOperation)

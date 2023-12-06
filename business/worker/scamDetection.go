@@ -39,6 +39,7 @@ func (w *Worker) scamDetectOperation() {
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
+						w.logger.Infow("worker: scamDetectOperation", "streamFile", audioName, "source", agent)
 					}
 
 				case customer:
@@ -47,6 +48,7 @@ func (w *Worker) scamDetectOperation() {
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
+						w.logger.Infow("worker: scamDetectOperation", "streamFile", audioName, "source", customer")
 					}
 
 				default:
