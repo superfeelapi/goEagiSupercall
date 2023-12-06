@@ -16,6 +16,7 @@ type TranscriptionData struct {
 	ExtensionId             string `json:"extension_id"`
 	DataId                  string `json:"data_id"`
 	Transcription           string `json:"transcription"`
+	Language                string `json:"language"`
 	TranslationEnabled      bool   `json:"translation_enabled"`
 	TranslatedTranscription string `json:"translated_transcription"`
 	IsFinal                 bool   `json:"isFinal"`
