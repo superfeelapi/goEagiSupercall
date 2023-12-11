@@ -33,6 +33,7 @@ type Config struct {
 	WauchatEndpoint          string
 	AudioDir                 string
 	AmplitudeThreshold       float64
+	AsteriskAudioDirectory   string
 }
 
 // =====================================================================================================================

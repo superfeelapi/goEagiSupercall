@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -32,7 +33,7 @@ func (w *Worker) scamDetectOperation() {
 			if data.IsScam {
 				w.scamCh <- true
 				audioName := fmt.Sprintf("%s-%s", scamAudioName, w.config.SourceLanguageCode)
-				if !checkIfFileExists(audioName) {
+				if !checkIfFileExists(w.config.AsteriskAudioDirectory, audioName) {
 					audioName = fmt.Sprintf("%s-%s", scamAudioName, w.config.Language)
 				}
 
@@ -69,7 +70,8 @@ func (w *Worker) scamDetectOperation() {
 
 // =====================================================================================================================
 
-func checkIfFileExists(audiopath string) bool {
+func checkIfFileExists(audioDirectory, audioName string) bool {
+	audiopath := filepath.Join(audioDirectory, audioName)
 	if _, err := os.Stat(audiopath); os.IsNotExist(err) {
 		return false
 	}

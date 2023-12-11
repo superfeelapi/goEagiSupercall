@@ -65,6 +65,9 @@ func main() {
 			TranscriptionChannel string `conf:"default:scamBot:transcription"`
 			ScamBotChannel       string `conf:"default:scamBot:"`
 		}
+		Asterisk struct {
+			AudioDirectory string `conf:"default:/var/lib/asterisk/sounds/en/"`
+		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`
 		}
@@ -193,6 +196,7 @@ func main() {
 			WauchatEndpoint:          cfg.Wauchat.TextEmotionEndpoint,
 			AudioDir:                 cfg.Vad.AudioDir,
 			AmplitudeThreshold:       cfg.Vad.AmplitudeThreshold,
+			AsteriskAudioDirectory:   cfg.Asterisk.AudioDirectory,
 		},
 	})
 
