@@ -40,7 +40,6 @@ type Worker struct {
 	voicebotCh          chan voicebot.Result
 	grpcCh              chan bool
 	idCh                chan string
-	scamCh              chan bool
 }
 
 func Run(s Settings) <-chan error {
@@ -66,7 +65,6 @@ func Run(s Settings) <-chan error {
 		voicebotCh:           make(chan voicebot.Result),
 		grpcCh:               make(chan bool, 10),
 		idCh:                 make(chan string),
-		scamCh:               make(chan bool),
 	}
 
 	if w.isTranslationEnabled {

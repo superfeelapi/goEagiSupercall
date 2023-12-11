@@ -31,15 +31,15 @@ func (w *Worker) scamDetectOperation() {
 				return
 			}
 			if data.IsScam {
-				w.scamCh <- true
+				w.logger.Infow("worker: scamDetectOperation: SCAM DETECTED", "data", data)
+				//w.scamCh <- true
 				audioName := fmt.Sprintf("%s-%s", scamAudioName, w.config.SourceLanguageCode)
-				w.logger.Infow("worker: scamDetectOperation", "audioName", audioName)
 
 				if !checkIfFileExists(w.config.AsteriskAudioDirectory, audioName) {
-					w.logger.Infow("worker: scamDetectOperation", "audioName", audioName, "not found", true)
 					audioName = fmt.Sprintf("%s-%s", scamAudioName, w.config.Language)
 				}
-				w.logger.Infow("worker: scamDetectOperation", "audioName", audioName)
+
+				w.logger.Infow("worker: scamDetectOperation", "audioName", audioName, "source", data.Source, "isScam", data.IsScam)
 
 				switch data.Source {
 				case agent:

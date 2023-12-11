@@ -53,18 +53,18 @@ func (w *Worker) supercallOperation() {
 	w.logger.Infow("worker: supercallOperation: G listening")
 	for {
 		select {
-		case <-w.scamCh:
-			w.logger.Infow("worker: supercallOperation: sending scam detected")
-			err := s.SendData(supercall.ScamEvent, supercall.ScamData{
-				Source:      w.config.Actor,
-				AgiId:       w.config.AgiID,
-				ExtensionId: w.config.ExtensionID,
-				IsScam:      true,
-			})
-			if err != nil {
-				w.logger.Errorw("worker: supercallOperation: sending scam detected", "ERROR", err)
-			}
-			w.logger.Infow("worker: supercallOperation: sent scam detected")
+		//case <-w.scamCh:
+		//	w.logger.Infow("worker: supercallOperation: sending scam detected")
+		//	err := s.SendData(supercall.ScamEvent, supercall.ScamData{
+		//		Source:      w.config.Actor,
+		//		AgiId:       w.config.AgiID,
+		//		ExtensionId: w.config.ExtensionID,
+		//		IsScam:      true,
+		//	})
+		//	if err != nil {
+		//		w.logger.Errorw("worker: supercallOperation: sending scam detected", "ERROR", err)
+		//	}
+		//	w.logger.Infow("worker: supercallOperation: sent scam detected")
 
 		case <-keepAlive.C:
 			err := s.SendData(supercall.KeepAliveEvent, nil)
