@@ -44,7 +44,7 @@ func (w *Worker) scamDetectOperation() {
 				switch data.Source {
 				case agent:
 					if w.config.Actor == agent {
-						_, err := w.eagi.StreamFile(audioName, "en")
+						_, err := w.eagi.StreamFile(audioName, "1")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
@@ -53,7 +53,7 @@ func (w *Worker) scamDetectOperation() {
 
 				case customer:
 					if w.config.Actor == customer {
-						_, err := w.eagi.StreamFile(audioName, "en")
+						_, err := w.eagi.StreamFile(audioName, "1")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}

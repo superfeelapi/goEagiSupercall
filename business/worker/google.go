@@ -5,7 +5,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
@@ -27,49 +26,14 @@ func (w *Worker) speech2TextOperation() {
 	for {
 		select {
 		case google := <-googleCh:
-			go func(google goEagi.GoogleResult, g *googleResponse) {
-				if google.Error != nil {
-					w.Shutdown(google.Error)
-				}
+			if google.Reinitialized {
+				w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info[Reinitialization]", google.Info)
+				transcrpt := g.getTranscription()
+				isFnl := g.getIsFinal()
 
-				if google.Info != "" && !google.Reinitialized {
-					w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info", google.Info)
-					return
-				}
-
-				if google.Reinitialized {
-					w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info[Reinitialization]", google.Info)
-					transcrpt := g.getTranscription()
-					isFnl := g.getIsFinal()
-
-					if !isFnl {
-						if isStringNotEmpty(transcrpt) {
-							w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", true)
-							w.fullTranscriptCh <- transcrpt
-
-							if w.state.Get(state.Wauchat) {
-								w.wauchatTranscriptCh <- transcrpt
-							}
-
-							if w.state.Get(state.Voicebot) {
-								w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcrpt)
-							}
-						}
-					}
-				} else {
-					transcrpt := google.Result.Alternatives[0].Transcript
-					isFnl := google.Result.IsFinal
-
-					g.setTranscription(transcrpt)
-					g.setIsFinal(isFnl)
-
-					switch isFnl {
-					case false:
-						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
-						w.interimTranscriptCh <- transcrpt
-
-					case true:
-						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
+				if !isFnl {
+					if isStringNotEmpty(transcrpt) {
+						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", true)
 						w.fullTranscriptCh <- transcrpt
 
 						if w.state.Get(state.Wauchat) {
@@ -81,7 +45,31 @@ func (w *Worker) speech2TextOperation() {
 						}
 					}
 				}
-			}(google, g)
+			} else {
+				transcrpt := google.Result.Alternatives[0].Transcript
+				isFnl := google.Result.IsFinal
+
+				g.setTranscription(transcrpt)
+				g.setIsFinal(isFnl)
+
+				switch isFnl {
+				case false:
+					w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
+					w.interimTranscriptCh <- transcrpt
+
+				case true:
+					w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
+					w.fullTranscriptCh <- transcrpt
+
+					if w.state.Get(state.Wauchat) {
+						w.wauchatTranscriptCh <- transcrpt
+					}
+
+					if w.state.Get(state.Voicebot) {
+						w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcrpt)
+					}
+				}
+			}
 
 		case err := <-errCh:
 			w.Shutdown(err)
