@@ -3,6 +3,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 const (
@@ -31,6 +32,9 @@ func (w *Worker) scamDetectOperation() {
 			if data.IsScam {
 				w.scamCh <- true
 				audioName := fmt.Sprintf("%s-%s", scamAudioName, w.config.SourceLanguageCode)
+				if !checkIfFileExists(audioName) {
+					audioName = fmt.Sprintf("%s-%s", scamAudioName, w.config.Language)
+				}
 
 				switch data.Source {
 				case agent:
@@ -61,4 +65,13 @@ func (w *Worker) scamDetectOperation() {
 			return
 		}
 	}
+}
+
+// =====================================================================================================================
+
+func checkIfFileExists(audiopath string) bool {
+	if _, err := os.Stat(audiopath); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
