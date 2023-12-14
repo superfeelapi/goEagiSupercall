@@ -95,9 +95,6 @@ github.com/redis/go-redis/v9/internal/util
 # github.com/superfeelapi/goEagi v1.0.7
 ## explicit; go 1.19
 github.com/superfeelapi/goEagi
-# github.com/superfeelapi/goVad v0.0.0-20220905105509-926b74456759
-## explicit; go 1.19
-github.com/superfeelapi/goVad/proto
 # github.com/zaf/agi v0.0.0-20220109201550-cdecf9a1b285
 ## explicit; go 1.17
 github.com/zaf/agi

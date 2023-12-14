@@ -5,8 +5,6 @@ import (
 
 	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/google"
-	"github.com/superfeelapi/goEagiSupercall/foundation/external/voicebot"
-	"github.com/superfeelapi/goEagiSupercall/foundation/external/wauchat"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 	"go.uber.org/zap"
@@ -29,16 +27,8 @@ type Worker struct {
 	isTranslationEnabled bool
 
 	toGoogleCh          chan []byte
-	toVadCh             chan []byte
 	interimTranscriptCh chan string
 	fullTranscriptCh    chan string
-	wauchatTranscriptCh chan string
-	paceTranscriptCh    chan int
-	audioPathCh         chan string
-	wauchatCh           chan wauchat.Result
-	wauchatQueueCh      chan wauchat.Result
-	voicebotCh          chan voicebot.Result
-	grpcCh              chan bool
 	idCh                chan string
 }
 
@@ -53,17 +43,9 @@ func Run(s Settings) <-chan error {
 		eagi:                 s.Eagi,
 		shut:                 make(chan struct{}),
 		error:                make(chan error),
-		toGoogleCh:           make(chan []byte, 1000),
-		toVadCh:              make(chan []byte),
+		toGoogleCh:           make(chan []byte, 4096),
 		interimTranscriptCh:  make(chan string, 10),
 		fullTranscriptCh:     make(chan string),
-		wauchatTranscriptCh:  make(chan string, 10),
-		paceTranscriptCh:     make(chan int, 10),
-		audioPathCh:          make(chan string),
-		wauchatCh:            make(chan wauchat.Result),
-		wauchatQueueCh:       make(chan wauchat.Result, 10),
-		voicebotCh:           make(chan voicebot.Result),
-		grpcCh:               make(chan bool, 10),
 		idCh:                 make(chan string),
 	}
 
@@ -82,11 +64,7 @@ func Run(s Settings) <-chan error {
 	}
 
 	operations = append(operations, []func(){
-		w.vadOperation,
-		w.goVadOperation,
 		w.speech2TextOperation,
-		w.voiceEmotionOperation,
-		w.textEmotionOperation,
 		w.supercallOperation,
 		w.audioStreamOperation,
 	}...)

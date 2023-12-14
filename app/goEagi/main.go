@@ -44,20 +44,8 @@ func main() {
 		Google struct {
 			PrivateKeyPath string `conf:"default:/var/lib/asterisk/agi-bin/boxwood-pilot-299014-769b582bc376.json,noprint"`
 		}
-		GoVad struct {
-			CertFilePath string `conf:"default:/var/lib/asterisk/agi-bin/grpc/selfsigned.crt,noprint"`
-			GrpcAddress  string `conf:"default:18.139.35.176:50051,noprint"`
-		}
 		Supercall struct {
 			ApiEndpoint string `conf:"default:https://ticket-api.superceed.com:9000/socket.io/?EIO=4&transport=polling,noprint"`
-		}
-		Voicebot struct {
-			ApiKey                       string `conf:"default:777,noprint"`
-			AgentVoiceEmotionEndpoint    string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=none,noprint"`
-			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
-		}
-		Wauchat struct {
-			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
 		}
 		Redis struct {
 			Address              string `conf:"default:redis-10106.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:10106"`
@@ -70,10 +58,6 @@ func main() {
 		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`
-		}
-		Vad struct {
-			AudioDir           string  `conf:"default:/tmp/goEagi/"`
-			AmplitudeThreshold float64 `conf:"default:-27.5"`
 		}
 	}{
 		Version: conf.Version{
@@ -178,25 +162,17 @@ func main() {
 		Redis:  redisClient,
 		Eagi:   eagi,
 		Config: worker.Config{
-			Actor:                    strings.ToLower(cfg.Eagi.Actor),
-			AgiID:                    cfg.Eagi.AgiID,
-			ExtensionID:              cfg.Eagi.ExtensionID,
-			CampaignName:             cfg.Eagi.CampaignName,
-			Language:                 cfg.Eagi.Language,
-			Translation:              cfg.Eagi.Translation,
-			SourceLanguageCode:       cfg.Eagi.LanguageCode,
-			TargetLanguageCode:       cfg.Eagi.TargetLanguageCode,
-			GooglePrivateKeyPath:     cfg.Google.PrivateKeyPath,
-			GrpcAddress:              cfg.GoVad.GrpcAddress,
-			GrpcCertFilePath:         cfg.GoVad.CertFilePath,
-			SupercallApiEndpoint:     cfg.Supercall.ApiEndpoint,
-			VoicebotApiKey:           cfg.Voicebot.ApiKey,
-			VoicebotAgentEndpoint:    cfg.Voicebot.AgentVoiceEmotionEndpoint,
-			VoicebotCustomerEndpoint: cfg.Voicebot.CustomerVoiceEmotionEndpoint,
-			WauchatEndpoint:          cfg.Wauchat.TextEmotionEndpoint,
-			AudioDir:                 cfg.Vad.AudioDir,
-			AmplitudeThreshold:       cfg.Vad.AmplitudeThreshold,
-			AsteriskAudioDirectory:   cfg.Asterisk.AudioDirectory,
+			Actor:                  strings.ToLower(cfg.Eagi.Actor),
+			AgiID:                  cfg.Eagi.AgiID,
+			ExtensionID:            cfg.Eagi.ExtensionID,
+			CampaignName:           cfg.Eagi.CampaignName,
+			Language:               cfg.Eagi.Language,
+			Translation:            cfg.Eagi.Translation,
+			SourceLanguageCode:     cfg.Eagi.LanguageCode,
+			TargetLanguageCode:     cfg.Eagi.TargetLanguageCode,
+			GooglePrivateKeyPath:   cfg.Google.PrivateKeyPath,
+			SupercallApiEndpoint:   cfg.Supercall.ApiEndpoint,
+			AsteriskAudioDirectory: cfg.Asterisk.AudioDirectory,
 		},
 	})
 

@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,8 +11,6 @@ import (
 const (
 	interimTranscriptionID = "interimTranscription"
 	fullTranscriptionID    = "fullTranscription"
-	TextEmotionID          = "textEmotion"
-	voiceEmotionID         = "voiceEmotion"
 )
 
 func (w *Worker) supercallOperation() {
@@ -21,7 +18,6 @@ func (w *Worker) supercallOperation() {
 	defer w.logger.Infow("worker: supercallOperation: G completed")
 
 	defer close(w.idCh)
-	defer close(w.wauchatQueueCh)
 
 	// Initialize Supercall's connection
 	s := supercall.New(w.config.SupercallApiEndpoint)
@@ -74,7 +70,7 @@ func (w *Worker) supercallOperation() {
 			}
 
 		case transcription := <-w.interimTranscriptCh:
-			go func() {
+			go func(transcription string) {
 				var translatedTranscription string
 				if w.isTranslationEnabled {
 					var err error
@@ -99,11 +95,11 @@ func (w *Worker) supercallOperation() {
 					w.Shutdown(err)
 					return
 				}
-			}()
+			}(transcription)
 
 		case transcription := <-w.fullTranscriptCh:
 			w.logger.Infow("worker: supercallOperation: sending full transcription")
-			go func() {
+			go func(transcription string) {
 				var translatedTranscription string
 				if w.isTranslationEnabled {
 					var err error
@@ -140,65 +136,7 @@ func (w *Worker) supercallOperation() {
 						w.logger.Errorw("worker: supercallOperation: redis", "ERROR", err)
 					}
 				}
-			}()
-
-		case textEmotion := <-w.wauchatCh:
-			w.logger.Infow("worker: supercallOperation: sending text emotion")
-			go func() {
-				err := s.SendData(supercall.TextEmotionEvent, supercall.TextEmotionData{
-					Source:                w.config.Actor,
-					AgiId:                 w.config.AgiID,
-					ExtensionId:           w.config.ExtensionID,
-					DataId:                dataID(TextEmotionID),
-					TextEmotion:           textEmotion.Class,
-					TextEmotionConfidence: textEmotion.Confidence,
-				})
-				if err != nil {
-					w.Shutdown(err)
-					return
-				}
-				w.logger.Infow("worker: supercallOperation: sent text emotion")
-			}()
-
-		case voiceEmotion := <-w.voicebotCh:
-			w.logger.Infow("worker: supercallOperation: sending voice emotion")
-			go func() {
-				pace := <-w.paceTranscriptCh
-				paceState := computePaceState(pace, voiceEmotion.AudioLength)
-
-				switch w.config.Actor {
-				case "agent":
-					err := s.SendData(supercall.VoiceEmotionEvent, supercall.VoiceEmotionData{
-						Source:         w.config.Actor,
-						AgiId:          w.config.AgiID,
-						ExtensionId:    w.config.ExtensionID,
-						DataId:         dataID(voiceEmotionID),
-						VoiceAmplitude: voiceEmotion.Amplitude[0].State,
-						VoicePace:      paceState,
-					})
-					if err != nil {
-						w.Shutdown(err)
-						return
-					}
-
-				case "customer":
-					err := s.SendData(supercall.VoiceEmotionEvent, supercall.VoiceEmotionData{
-						Source:                 w.config.Actor,
-						AgiId:                  w.config.AgiID,
-						ExtensionId:            w.config.ExtensionID,
-						DataId:                 dataID(voiceEmotionID),
-						VoiceAmplitude:         voiceEmotion.Amplitude[0].State,
-						VoicePace:              paceState,
-						VoiceEmotion:           voiceEmotion.Emotion[0].Result,
-						VoiceEmotionConfidence: voiceEmotion.Emotion[0].Confidence,
-					})
-					if err != nil {
-						w.Shutdown(err)
-						return
-					}
-				}
-				w.logger.Infow("worker: supercallOperation: sent voice emotion")
-			}()
+			}(transcription)
 
 		case <-w.shut:
 			w.logger.Infow("worker: supercallOperation: received shut signal")
@@ -239,8 +177,6 @@ func NewDataIDs() *DataIDs {
 		elements: map[string][]string{
 			interimTranscriptionID: {generateId},
 			fullTranscriptionID:    {generateId},
-			TextEmotionID:          {generateId},
-			voiceEmotionID:         {generateId},
 		},
 	}
 	return &d
@@ -260,24 +196,4 @@ func (d *DataIDs) Dequeue(event string) string {
 }
 func (d *DataIDs) Peek(event string) string {
 	return d.elements[event][0]
-}
-
-// =================================================================================================================
-
-// computePaceState returns word per minute and state which based on speech rate guidelines.
-func computePaceState(transcriptionLength int, audioSecond float64) string {
-	wpm := wordPerMinute(transcriptionLength, audioSecond)
-	if wpm > 180 {
-		return "fast"
-	} else if wpm < 110 {
-		return "slow"
-	} else {
-		return "normal"
-	}
-}
-
-// wordPerMinute computes word per minute.
-func wordPerMinute(transcriptionLength int, audioSecond float64) float64 {
-	wpm := float64(transcriptionLength) / (audioSecond / 60)
-	return math.Ceil(wpm*100) / 100
 }

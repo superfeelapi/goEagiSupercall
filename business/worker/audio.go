@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/superfeelapi/goEagi"
-	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
 func (w *Worker) audioStreamOperation() {
@@ -24,10 +23,6 @@ func (w *Worker) audioStreamOperation() {
 				return
 			}
 			w.toGoogleCh <- audio.Stream
-
-			if w.state.Get(state.Voicebot) || w.state.Get(state.GoVad) {
-				w.toVadCh <- audio.Stream
-			}
 
 		case <-w.shut:
 			w.logger.Infow("worker: audioStreamOperation: received shut signal")
