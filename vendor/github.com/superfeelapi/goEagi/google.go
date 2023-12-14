@@ -14,7 +14,7 @@ import (
 	"time"
 
 	speech "cloud.google.com/go/speech/apiv1"
-	speechpb "cloud.google.com/go/speech/apiv1/speechpb"
+	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
 )
 
 const (
@@ -89,16 +89,14 @@ func NewGoogleService(privateKeyPath string, languageCode string, speechContext 
 		StreamingRequest: &speechpb.StreamingRecognizeRequest_StreamingConfig{
 			StreamingConfig: &speechpb.StreamingRecognitionConfig{
 				Config: &speechpb.RecognitionConfig{
-					Encoding:                   speechpb.RecognitionConfig_LINEAR16,
-					SampleRateHertz:            sampleRate,
-					LanguageCode:               g.languageCode,
-					Model:                      g.domainModel,
-					UseEnhanced:                g.enhancedMode,
-					SpeechContexts:             []*speechpb.SpeechContext{sc},
-					EnableAutomaticPunctuation: true,
+					Encoding:        speechpb.RecognitionConfig_LINEAR16,
+					SampleRateHertz: sampleRate,
+					LanguageCode:    g.languageCode,
+					Model:           g.domainModel,
+					UseEnhanced:     g.enhancedMode,
+					SpeechContexts:  []*speechpb.SpeechContext{sc},
 				},
-				InterimResults:            true,
-				EnableVoiceActivityEvents: true,
+				InterimResults: true,
 			},
 		},
 	}); err != nil {
@@ -144,28 +142,16 @@ func (g *GoogleService) StartStreaming(ctx context.Context, stream <-chan []byte
 func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleResult {
 	googleResultStream := make(chan GoogleResult, 5)
 
-	timer := time.NewTicker(270 * time.Second)
+	t := time.Now()
+	m := &sync.Mutex{}
 
-	go func() {
+	go func(m *sync.Mutex) {
 		defer close(googleResultStream)
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-
-			case <-timer.C:
-				googleResultStream <- GoogleResult{
-					Info:          fmt.Sprintf("%s", "Reinitializing Google's client"),
-					Reinitialized: true,
-				}
-				g.Lock()
-				if err := g.ReinitializeClient(); err != nil {
-					googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-					g.Unlock()
-					continue
-				}
-				googleResultStream <- GoogleResult{Info: "Reinitialized!"}
-				g.Unlock()
 
 			default:
 				resp, err := g.client.Recv()
@@ -179,31 +165,59 @@ func (g *GoogleService) SpeechToTextResponse(ctx context.Context) <-chan GoogleR
 					return
 				}
 
-				if err := resp.Error; err != nil {
-					if err.Code == 3 || err.Code == 11 {
-						googleResultStream <- GoogleResult{
-							Info:          fmt.Sprintf("%s: %s", resp.Error.Message, "Reinitializing Google's client"),
-							Reinitialized: true,
-						}
-            
-						g.Lock()
-						if err := g.ReinitializeClient(); err != nil {
-							googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
-							g.Unlock()
-							return
-						}
+				var exceed bool
 
-						googleResultStream <- GoogleResult{Info: "Reinitialized!"}
-						g.Unlock()
-						continue
-					}
+				m.Lock()
+				if time.Since(t).Seconds() > 240 {
+					exceed = true
+					t = time.Now()
 				}
+				m.Unlock()
+
+				if exceed {
+					googleResultStream <- GoogleResult{
+						Info:          fmt.Sprintf("%s", "Reinitializing Google's client"),
+						Reinitialized: true,
+					}
+
+					g.Lock()
+					if err := g.ReinitializeClient(); err != nil {
+						googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
+						g.Unlock()
+						return
+					}
+
+					googleResultStream <- GoogleResult{Info: "Reinitialized!"}
+
+					g.Unlock()
+					continue
+				}
+
+				if err := resp.Error; err != nil {
+					googleResultStream <- GoogleResult{
+						Info:          fmt.Sprintf("%s", "Reinitializing Google's client"),
+						Reinitialized: true,
+					}
+
+					g.Lock()
+					if err := g.ReinitializeClient(); err != nil {
+						googleResultStream <- GoogleResult{Error: fmt.Errorf("failed to reinitialize streaming client: %v", err)}
+						g.Unlock()
+						return
+					}
+
+					googleResultStream <- GoogleResult{Info: "Reinitialized!"}
+
+					g.Unlock()
+					continue
+				}
+
 				for _, result := range resp.Results {
 					googleResultStream <- GoogleResult{Result: result}
 				}
 			}
 		}
-	}()
+	}(m)
 
 	return googleResultStream
 }
@@ -227,16 +241,14 @@ func (g *GoogleService) ReinitializeClient() error {
 		StreamingRequest: &speechpb.StreamingRecognizeRequest_StreamingConfig{
 			StreamingConfig: &speechpb.StreamingRecognitionConfig{
 				Config: &speechpb.RecognitionConfig{
-					Encoding:                   speechpb.RecognitionConfig_LINEAR16,
-					SampleRateHertz:            sampleRate,
-					LanguageCode:               g.languageCode,
-					Model:                      domainModel,
-					UseEnhanced:                g.enhancedMode,
-					SpeechContexts:             []*speechpb.SpeechContext{sc},
-					EnableAutomaticPunctuation: true,
+					Encoding:        speechpb.RecognitionConfig_LINEAR16,
+					SampleRateHertz: sampleRate,
+					LanguageCode:    g.languageCode,
+					Model:           domainModel,
+					UseEnhanced:     g.enhancedMode,
+					SpeechContexts:  []*speechpb.SpeechContext{sc},
 				},
-				InterimResults:            true,
-				EnableVoiceActivityEvents: true,
+				InterimResults: true,
 			},
 		},
 	}); err != nil {

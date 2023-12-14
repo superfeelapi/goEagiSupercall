@@ -7,7 +7,7 @@ require (
 	github.com/ardanlabs/conf/v3 v3.1.3
 	github.com/google/uuid v1.4.0
 	github.com/redis/go-redis/v9 v9.3.0
-	github.com/superfeelapi/goEagi v1.0.7
+	github.com/superfeelapi/goEagi v1.1.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/text v0.13.0
 )

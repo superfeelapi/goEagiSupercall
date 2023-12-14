@@ -15,11 +15,21 @@ func (w *Worker) speech2TextOperation() {
 	googleCh := w.google.SpeechToTextResponse(context.Background())
 
 	w.logger.Infow("worker: speech2TextOperation: G listening")
+
+	var transcriptionData string
+
 	for {
 		select {
 		case google := <-googleCh:
 			transcript := google.Result.Alternatives[0].Transcript
+			transcriptionData = transcript
 			isFinal := google.Result.IsFinal
+
+			if google.Reinitialized {
+				w.fullTranscriptCh <- transcriptionData
+				w.logger.Infow("worker: speech2TextOperation: G reinitialized")
+				continue
+			}
 
 			switch isFinal {
 			case false:
