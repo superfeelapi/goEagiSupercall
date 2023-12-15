@@ -2,38 +2,33 @@ package worker
 
 import (
 	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 	"go.uber.org/zap"
 )
 
 type Settings struct {
 	Config
-	Logger *zap.SugaredLogger
-	Google *goEagi.GoogleService
-	Redis  *redis.Redis
-	Eagi   *goEagi.Eagi
+	Logger    *zap.SugaredLogger
+	Google    *goEagi.GoogleService
+	Redis     *redis.Redis
+	Eagi      *goEagi.Eagi
+	Supercall *supercall.Polling
 }
 
 type Config struct {
-	Actor                    string
-	AgiID                    string
-	ExtensionID              string
-	CampaignName             string
-	Language                 string
-	Translation              bool
-	SourceLanguageCode       string
-	TargetLanguageCode       string
-	GooglePrivateKeyPath     string
-	GrpcAddress              string
-	GrpcCertFilePath         string
-	SupercallApiEndpoint     string
-	VoicebotApiKey           string
-	VoicebotAgentEndpoint    string
-	VoicebotCustomerEndpoint string
-	WauchatEndpoint          string
-	AudioDir                 string
-	AmplitudeThreshold       float64
-	AsteriskAudioDirectory   string
+	Actor                  string
+	AgiID                  string
+	ExtensionID            string
+	CampaignName           string
+	Language               string
+	Translation            bool
+	SourceLanguageCode     string
+	TargetLanguageCode     string
+	GooglePrivateKeyPath   string
+	SupercallApiEndpoint   string
+	SupercallSessionID     string
+	AsteriskAudioDirectory string
 }
 
 // =====================================================================================================================

@@ -5,6 +5,7 @@ import (
 
 	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/google"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ type Worker struct {
 	translation *google.Translation
 	redis       *redis.Redis
 	eagi        *goEagi.Eagi
+	supercall   *supercall.Polling
 
 	wg    sync.WaitGroup
 	shut  chan struct{}
@@ -29,7 +31,6 @@ type Worker struct {
 	toGoogleCh          chan []byte
 	interimTranscriptCh chan string
 	fullTranscriptCh    chan string
-	idCh                chan string
 }
 
 func Run(s Settings) <-chan error {
@@ -41,12 +42,12 @@ func Run(s Settings) <-chan error {
 		isTranslationEnabled: s.Translation,
 		redis:                s.Redis,
 		eagi:                 s.Eagi,
+		supercall:            s.Supercall,
 		shut:                 make(chan struct{}),
 		error:                make(chan error),
 		toGoogleCh:           make(chan []byte, 4096),
 		interimTranscriptCh:  make(chan string, 10),
 		fullTranscriptCh:     make(chan string),
-		idCh:                 make(chan string),
 	}
 
 	if w.isTranslationEnabled {

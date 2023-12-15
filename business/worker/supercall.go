@@ -17,19 +17,7 @@ func (w *Worker) supercallOperation() {
 	w.logger.Infow("worker: supercallOperation: G started")
 	defer w.logger.Infow("worker: supercallOperation: G completed")
 
-	defer close(w.idCh)
-
-	// Initialize Supercall's connection
-	s := supercall.New(w.config.SupercallApiEndpoint)
-	err := s.SetupConnection()
-	if err != nil {
-		w.Shutdown(err)
-		return
-	}
-
-	w.idCh <- s.GetSessionID()
-
-	err = s.SendData(supercall.AgiEvent, supercall.AgiData{
+	err := w.supercall.SendData(supercall.AgiEvent, supercall.AgiData{
 		Source:      w.config.Actor,
 		AgiId:       w.config.AgiID,
 		ExtensionId: w.config.ExtensionID,
@@ -63,7 +51,7 @@ func (w *Worker) supercallOperation() {
 		//	w.logger.Infow("worker: supercallOperation: sent scam detected")
 
 		case <-keepAlive.C:
-			err := s.SendData(supercall.KeepAliveEvent, nil)
+			err := w.supercall.SendData(supercall.KeepAliveEvent, nil)
 			if err != nil {
 				w.Shutdown(err)
 				return
@@ -80,7 +68,7 @@ func (w *Worker) supercallOperation() {
 						w.logger.Errorw("worker: supercallOperation: translation", "ERROR", err)
 					}
 				}
-				err := s.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
+				err := w.supercall.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
 					Source:                  w.config.Actor,
 					AgiId:                   w.config.AgiID,
 					ExtensionId:             w.config.ExtensionID,
@@ -122,7 +110,7 @@ func (w *Worker) supercallOperation() {
 					IsFinal:                 true,
 				}
 
-				err := s.SendData(supercall.TranscriptEvent, data)
+				err := w.supercall.SendData(supercall.TranscriptEvent, data)
 				if err != nil {
 					w.Shutdown(err)
 					return

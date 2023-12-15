@@ -10,6 +10,7 @@ import (
 	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/business/worker"
 	"github.com/superfeelapi/goEagiSupercall/foundation/config"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/logger"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 )
@@ -154,13 +155,23 @@ func main() {
 	}
 
 	// =================================================================================================================
+	// Supercall
+
+	s := supercall.New(cfg.Supercall.ApiEndpoint)
+	err = s.SetupConnection()
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+
+	// =================================================================================================================
 	// Run Worker
 
 	workerCh := worker.Run(worker.Settings{
-		Logger: log,
-		Google: google,
-		Redis:  redisClient,
-		Eagi:   eagi,
+		Logger:    log,
+		Google:    google,
+		Redis:     redisClient,
+		Eagi:      eagi,
+		Supercall: s,
 		Config: worker.Config{
 			Actor:                  strings.ToLower(cfg.Eagi.Actor),
 			AgiID:                  cfg.Eagi.AgiID,
