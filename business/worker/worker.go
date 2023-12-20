@@ -66,7 +66,7 @@ func Run(s Settings) <-chan error {
 
 	operations = append(operations, []func(){
 		w.speech2TextOperation,
-		w.supercallOperation,
+		//w.supercallOperation,
 		w.audioStreamOperation,
 	}...)
 

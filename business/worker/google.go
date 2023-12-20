@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 )
 
 func (w *Worker) speech2TextOperation() {
@@ -34,11 +35,13 @@ func (w *Worker) speech2TextOperation() {
 			switch isFinal {
 			case false:
 				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcript, "isFinal", isFinal)
-				w.interimTranscriptCh <- transcript
+				w.eagi.Verbose(fmt.Sprintf("INTERIM TRANSCRIPTION: %s", transcript))
+				//w.interimTranscriptCh <- transcript
 
 			case true:
 				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcript, "isFinal", isFinal)
-				w.fullTranscriptCh <- transcript
+				w.eagi.Verbose(fmt.Sprintf("FULL TRANSCRIPTION: %s", transcript))
+				//w.fullTranscriptCh <- transcript
 			}
 
 		case err := <-errCh:
