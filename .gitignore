@@ -1,3 +1,4 @@
 # Editor files
 .idea/
 app/goEagi/
+.env

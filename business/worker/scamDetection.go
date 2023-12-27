@@ -2,16 +2,11 @@ package worker
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
 )
 
 const (
 	agent    = "agent"
 	customer = "customer"
-
-	scamAudioName = "scamDetected"
 )
 
 func (w *Worker) scamDetectOperation() {
@@ -32,32 +27,27 @@ func (w *Worker) scamDetectOperation() {
 			}
 			if data.IsScam {
 				w.logger.Infow("worker: scamDetectOperation: SCAM DETECTED", "data", data)
-				//w.scamCh <- true
-				audioName := fmt.Sprintf("%s-%s", scamAudioName, w.config.SourceLanguageCode)
+				w.toScamCh <- true
 
-				if !checkIfFileExists(w.config.AsteriskAudioDirectory, audioName) {
-					audioName = fmt.Sprintf("%s-%s", scamAudioName, w.config.Language)
-				}
-
-				w.logger.Infow("worker: scamDetectOperation", "audioName", audioName, "source", data.Source, "isScam", data.IsScam)
+				w.logger.Infow("worker: scamDetectOperation", "audioName", w.campaign.Scam.AudioPath, "source", data.Source, "isScam", data.IsScam)
 
 				switch data.Source {
 				case agent:
 					if w.config.Actor == agent {
-						_, err := w.eagi.StreamFile(audioName, "1")
+						_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
-						w.logger.Infow("worker: scamDetectOperation", "streamFile", audioName, "source", agent)
+						w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", agent)
 					}
 
 				case customer:
 					if w.config.Actor == customer {
-						_, err := w.eagi.StreamFile(audioName, "1")
+						_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
 						if err != nil {
 							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
 						}
-						w.logger.Infow("worker: scamDetectOperation", "streamFile", audioName, "source", customer)
+						w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", customer)
 					}
 
 				default:
@@ -70,15 +60,4 @@ func (w *Worker) scamDetectOperation() {
 			return
 		}
 	}
-}
-
-// =====================================================================================================================
-
-func checkIfFileExists(audioDirectory, audioName string) bool {
-	audioName = fmt.Sprintf("%s.wav", audioName)
-	audiopath := filepath.Join(audioDirectory, audioName)
-	if _, err := os.Stat(audiopath); os.IsNotExist(err) {
-		return false
-	}
-	return true
 }

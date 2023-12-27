@@ -3,7 +3,9 @@ package worker
 import (
 	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/config"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/google"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
@@ -14,44 +16,46 @@ import (
 type Worker struct {
 	config Config
 	state  *state.State
-	logger *zap.SugaredLogger
 
-	google      *goEagi.GoogleService
-	translation *google.Translation
-	redis       *redis.Redis
+	logger      *zap.SugaredLogger
 	eagi        *goEagi.Eagi
+	google      *goEagi.GoogleService
+	azure       *websocket.Conn
+	redis       *redis.Redis
 	supercall   *supercall.Polling
+	campaign    config.Campaign
+	translation *google.Translation
 
 	wg    sync.WaitGroup
 	shut  chan struct{}
 	error chan error
 
-	isTranslationEnabled bool
-
-	toGoogleCh          chan []byte
+	toSpeechCh          chan []byte
+	toScamCh            chan bool
 	interimTranscriptCh chan string
 	fullTranscriptCh    chan string
 }
 
 func Run(s Settings) <-chan error {
 	w := &Worker{
-		config:               s.Config,
-		state:                state.NewState(),
-		logger:               s.Logger,
-		google:               s.Google,
-		isTranslationEnabled: s.Translation,
-		redis:                s.Redis,
-		eagi:                 s.Eagi,
-		supercall:            s.Supercall,
-		shut:                 make(chan struct{}),
-		error:                make(chan error),
-		toGoogleCh:           make(chan []byte, 4096),
-		interimTranscriptCh:  make(chan string, 10),
-		fullTranscriptCh:     make(chan string),
+		config:              s.Config,
+		state:               state.NewState(),
+		logger:              s.Logger,
+		eagi:                s.Eagi,
+		google:              s.Google,
+		azure:               s.Azure,
+		redis:               s.Redis,
+		supercall:           s.Supercall,
+		campaign:            s.Campaign,
+		shut:                make(chan struct{}),
+		error:               make(chan error),
+		toSpeechCh:          make(chan []byte, 4096),
+		interimTranscriptCh: make(chan string, 10),
+		fullTranscriptCh:    make(chan string),
 	}
 
-	if w.isTranslationEnabled {
-		translation, err := google.NewTranslation(s.GooglePrivateKeyPath, w.config.SourceLanguageCode, w.config.TargetLanguageCode)
+	if w.campaign.Translation.InUse {
+		translation, err := google.NewTranslation(s.GooglePrivateKeyPath, w.campaign.Translation.Source, w.campaign.Translation.Target)
 		if err != nil {
 			return w.error
 		}
@@ -60,13 +64,22 @@ func Run(s Settings) <-chan error {
 
 	operations := make([]func(), 0)
 
-	if w.state.Get(state.Redis) {
+	if w.campaign.Scam.InUse {
 		operations = append(operations, w.scamDetectOperation)
+		w.toScamCh = make(chan bool)
+	}
+
+	if w.google != nil {
+		operations = append(operations, w.googleOperation)
+	}
+
+	if w.azure != nil {
+		// underlying azureOperation will spawn another 3 goroutines
+		operations = append(operations, w.azureOperation)
 	}
 
 	operations = append(operations, []func(){
-		w.speech2TextOperation,
-		//w.supercallOperation,
+		w.supercallOperation,
 		w.audioStreamOperation,
 	}...)
 

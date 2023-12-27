@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/ardanlabs/conf/v3"
+	"github.com/gorilla/websocket"
 	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/business/worker"
 	"github.com/superfeelapi/goEagiSupercall/foundation/config"
@@ -22,31 +24,31 @@ var (
 )
 
 func main() {
-
 	// =================================================================================================================
 	// Configuration
 
 	cfg := struct {
 		conf.Version
 		Eagi struct {
-			AgiID              string
-			Actor              string
-			ExtensionID        string
-			BoundType          string
-			CampaignID         string
-			CampaignName       string
-			Language           string
-			LanguageCode       string
-			TargetLanguageCode string
-			Translation        bool
-			SpeechContext      []string
-			ConfigFilePath     string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
+			AgiID          string
+			Actor          string
+			ExtensionID    string
+			BoundType      string
+			CampaignID     string
+			ConfigFilePath string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
 		}
 		Google struct {
 			PrivateKeyPath string `conf:"default:/var/lib/asterisk/agi-bin/boxwood-pilot-299014-769b582bc376.json,noprint"`
 		}
+		Websocket struct {
+			Scheme string `conf:"default:ws"`
+			Host   string `conf:"default:20.2.83.74:8080"`
+			Path   string `conf:"default:/azure"`
+			ApiKey string
+		}
 		Supercall struct {
 			ApiEndpoint string `conf:"default:https://ticket-api.superceed.com:9000/socket.io/?EIO=4&transport=polling,noprint"`
+			ApiToken    string
 		}
 		Redis struct {
 			Address              string `conf:"default:redis-10106.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:10106"`
@@ -89,6 +91,13 @@ func main() {
 	}
 
 	// =================================================================================================================
+	// Local Environment Variables
+
+	cfg.Websocket.ApiKey = os.Getenv("AZURE_WEBSOCKET_API_KEY")
+	cfg.Supercall.ApiToken = os.Getenv("SUPERCALL_SOCKETIO_API_TOKEN")
+	cfg.Redis.Password = os.Getenv("REDIS_PASSWORD")
+
+	// =================================================================================================================
 	// Eagi Environment Variables
 
 	eagi, err := goEagi.New()
@@ -120,13 +129,6 @@ func main() {
 		log.Errorw("startup", "ERROR", err)
 	}
 
-	cfg.Eagi.CampaignName = config.GetCampaignName(campaignConfig)
-	cfg.Eagi.Language = config.GetLanguage(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.LanguageCode = config.GetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.SpeechContext = config.GetSpeechContext(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.TargetLanguageCode = config.GetTargetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.Translation = config.IsTranslationEnabled(campaignConfig, cfg.Eagi.BoundType)
-
 	// =================================================================================================================
 	// Configuration Stringify
 
@@ -137,11 +139,66 @@ func main() {
 	log.Infow("startup", "config", out)
 
 	// =================================================================================================================
-	// Google Speech2Text
+	// Speech2Text
 
-	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, cfg.Eagi.LanguageCode, cfg.Eagi.SpeechContext)
+	var google *goEagi.GoogleService
+	var azure *websocket.Conn
+
+	// Google Speech2Text
+	googleInUse, err := campaignConfig.IsGoogleInUse(cfg.Eagi.BoundType)
 	if err != nil {
 		log.Errorw("startup", "ERROR", err)
+	}
+	if googleInUse {
+		languageCode, err := campaignConfig.GetGoogleLanguageCode(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		speechContext, err := campaignConfig.GetGoogleSpeechContext(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		google, err = goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, languageCode, speechContext)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+	}
+
+	// Azure Speech2Text
+	azureInUse, err := campaignConfig.IsAzureInUse(cfg.Eagi.BoundType)
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+	if azureInUse {
+		u := url.URL{
+			Scheme: cfg.Websocket.Scheme,
+			Host:   cfg.Websocket.Host,
+			Path:   cfg.Websocket.Path,
+		}
+
+		azure, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		languageCode, err := campaignConfig.GetAzureLanguageCode(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		registerData := struct {
+			ApiKey       string
+			LanguageCode []string
+		}{
+			ApiKey:       cfg.Websocket.ApiKey,
+			LanguageCode: languageCode,
+		}
+
+		if err := azure.WriteJSON(registerData); err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
 	}
 
 	// =================================================================================================================
@@ -157,8 +214,8 @@ func main() {
 	// =================================================================================================================
 	// Supercall
 
-	s := supercall.New(cfg.Supercall.ApiEndpoint)
-	err = s.SetupConnection()
+	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
+	err = superCall.SetupConnection()
 	if err != nil {
 		log.Errorw("startup", "ERROR", err)
 	}
@@ -168,21 +225,17 @@ func main() {
 
 	workerCh := worker.Run(worker.Settings{
 		Logger:    log,
-		Google:    google,
-		Redis:     redisClient,
 		Eagi:      eagi,
-		Supercall: s,
+		Google:    google,
+		Azure:     azure,
+		Redis:     redisClient,
+		Supercall: superCall,
+		Campaign:  campaignConfig,
 		Config: worker.Config{
 			Actor:                  strings.ToLower(cfg.Eagi.Actor),
 			AgiID:                  cfg.Eagi.AgiID,
 			ExtensionID:            cfg.Eagi.ExtensionID,
-			CampaignName:           cfg.Eagi.CampaignName,
-			Language:               cfg.Eagi.Language,
-			Translation:            cfg.Eagi.Translation,
-			SourceLanguageCode:     cfg.Eagi.LanguageCode,
-			TargetLanguageCode:     cfg.Eagi.TargetLanguageCode,
 			GooglePrivateKeyPath:   cfg.Google.PrivateKeyPath,
-			SupercallApiEndpoint:   cfg.Supercall.ApiEndpoint,
 			AsteriskAudioDirectory: cfg.Asterisk.AudioDirectory,
 		},
 	})

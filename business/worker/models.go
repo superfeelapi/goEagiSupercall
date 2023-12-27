@@ -1,7 +1,9 @@
 package worker
 
 import (
+	"github.com/gorilla/websocket"
 	"github.com/superfeelapi/goEagi"
+	"github.com/superfeelapi/goEagiSupercall/foundation/config"
 	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 	"go.uber.org/zap"
@@ -10,25 +12,27 @@ import (
 type Settings struct {
 	Config
 	Logger    *zap.SugaredLogger
-	Google    *goEagi.GoogleService
-	Redis     *redis.Redis
 	Eagi      *goEagi.Eagi
+	Google    *goEagi.GoogleService
+	Azure     *websocket.Conn
+	Redis     *redis.Redis
 	Supercall *supercall.Polling
+	Campaign  config.Campaign
 }
 
 type Config struct {
 	Actor                  string
 	AgiID                  string
 	ExtensionID            string
-	CampaignName           string
-	Language               string
-	Translation            bool
-	SourceLanguageCode     string
-	TargetLanguageCode     string
 	GooglePrivateKeyPath   string
-	SupercallApiEndpoint   string
-	SupercallSessionID     string
 	AsteriskAudioDirectory string
+}
+
+// =====================================================================================================================
+
+type AzureResult struct {
+	Transcription string `json:"transcription"`
+	IsFinal       bool   `json:"is_final"`
 }
 
 // =====================================================================================================================

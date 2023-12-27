@@ -1,0 +1,50 @@
+{
+  "projects": [
+    {
+      "extension_id": "3232",
+      "campaigns": [
+        {
+          "id": "1",
+          "name": "development",
+          "kind": "eagi",
+          "in_use": true,
+          "translation": {
+            "in_use": true,
+            "source": "en",
+            "target": "zh"
+          },
+          "scam": {
+            "in_use": true,
+            "audio_path": "/var/lib/sounds/development/scamDetected-th-TH.wav"
+          },
+          "inbound": {
+            "google": {
+              "in_use": false,
+              "language_code": "th-TH",
+              "speech_context": {}
+            },
+            "azure": {
+              "in_use": true,
+              "language_code": [
+                "en-GB"
+              ]
+            }
+          },
+          "outbound": {
+            "google": {
+              "in_use": false,
+              "language_code": "th-TH",
+              "speech_context": {}
+            },
+            "azure": {
+              "in_use": true,
+              "language_code": [
+                "en-GB"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

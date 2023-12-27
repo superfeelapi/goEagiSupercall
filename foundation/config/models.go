@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	Eagi []Project `json:"eagi"`
+	Projects []Project `json:"projects"`
 }
 
 type Project struct {
@@ -10,16 +10,39 @@ type Project struct {
 }
 
 type Campaign struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Inbound  Bound  `json:"inbound"`
-	Outbound Bound  `json:"outbound"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Kind        string      `json:"kind"`
+	InUse       bool        `json:"in_use"`
+	Translation Translation `json:"translation"`
+	Scam        Scam        `json:"scam"`
+	Inbound     Bound       `json:"inbound"`
+	Outbound    Bound       `json:"outbound"`
+}
+
+type Translation struct {
+	InUse  bool   `json:"in_use"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type Scam struct {
+	InUse     bool   `json:"in_use"`
+	AudioPath string `json:"audio_path"`
 }
 
 type Bound struct {
-	LanguageCode         string            `json:"language_code"`
-	Language             string            `json:"language"`
-	Translation          bool              `json:"translation"`
-	TargetedLanguageCode string            `json:"targeted_language_code"`
-	SpeechContext        map[string]string `json:"speech_context"`
+	Google Google `json:"google"`
+	Azure  Azure  `json:"azure"`
+}
+
+type Google struct {
+	InUse         bool              `json:"in_use"`
+	LanguageCode  string            `json:"language_code"`
+	SpeechContext map[string]string `json:"speech_context"`
+}
+
+type Azure struct {
+	InUse        bool     `json:"in_use"`
+	LanguageCode []string `json:"language_code"`
 }

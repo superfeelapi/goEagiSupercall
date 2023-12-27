@@ -17,6 +17,7 @@ func (w *Worker) supercallOperation() {
 	w.logger.Infow("worker: supercallOperation: G started")
 	defer w.logger.Infow("worker: supercallOperation: G completed")
 
+	// Send AGI data
 	err := w.supercall.SendData(supercall.AgiEvent, supercall.AgiData{
 		Source:      w.config.Actor,
 		AgiId:       w.config.AgiID,
@@ -37,18 +38,18 @@ func (w *Worker) supercallOperation() {
 	w.logger.Infow("worker: supercallOperation: G listening")
 	for {
 		select {
-		//case <-w.scamCh:
-		//	w.logger.Infow("worker: supercallOperation: sending scam detected")
-		//	err := s.SendData(supercall.ScamEvent, supercall.ScamData{
-		//		Source:      w.config.Actor,
-		//		AgiId:       w.config.AgiID,
-		//		ExtensionId: w.config.ExtensionID,
-		//		IsScam:      true,
-		//	})
-		//	if err != nil {
-		//		w.logger.Errorw("worker: supercallOperation: sending scam detected", "ERROR", err)
-		//	}
-		//	w.logger.Infow("worker: supercallOperation: sent scam detected")
+		case <-w.toScamCh:
+			w.logger.Infow("worker: supercallOperation: sending scam detected")
+			err := w.supercall.SendData(supercall.ScamEvent, supercall.ScamData{
+				Source:      w.config.Actor,
+				AgiId:       w.config.AgiID,
+				ExtensionId: w.config.ExtensionID,
+				IsScam:      true,
+			})
+			if err != nil {
+				w.logger.Errorw("worker: supercallOperation: sending scam detected", "ERROR", err)
+			}
+			w.logger.Infow("worker: supercallOperation: sent scam detected")
 
 		case <-keepAlive.C:
 			err := w.supercall.SendData(supercall.KeepAliveEvent, nil)
@@ -59,23 +60,25 @@ func (w *Worker) supercallOperation() {
 
 		case transcription := <-w.interimTranscriptCh:
 			go func(transcription string) {
-				var translatedTranscription string
-				if w.isTranslationEnabled {
-					var err error
 
+				// translation
+				var translatedTranscription string
+				if w.campaign.Translation.InUse {
+					var err error
 					translatedTranscription, err = w.translation.Translate(transcription)
 					if err != nil {
 						w.logger.Errorw("worker: supercallOperation: translation", "ERROR", err)
 					}
 				}
+
+				// send data
 				err := w.supercall.SendData(supercall.TranscriptEvent, supercall.TranscriptionData{
 					Source:                  w.config.Actor,
 					AgiId:                   w.config.AgiID,
 					ExtensionId:             w.config.ExtensionID,
 					DataId:                  dataID(interimTranscriptionID),
 					Transcription:           transcription,
-					Language:                w.config.Language,
-					TranslationEnabled:      w.isTranslationEnabled,
+					TranslationEnabled:      w.campaign.Translation.InUse,
 					TranslatedTranscription: translatedTranscription,
 					IsFinal:                 false,
 				})
@@ -86,30 +89,29 @@ func (w *Worker) supercallOperation() {
 			}(transcription)
 
 		case transcription := <-w.fullTranscriptCh:
-			w.logger.Infow("worker: supercallOperation: sending full transcription")
 			go func(transcription string) {
-				var translatedTranscription string
-				if w.isTranslationEnabled {
-					var err error
 
+				// translation
+				var translatedTranscription string
+				if w.campaign.Translation.InUse {
+					var err error
 					translatedTranscription, err = w.translation.Translate(transcription)
 					if err != nil {
 						w.logger.Errorw("worker: supercallOperation: translation", "ERROR", err)
 					}
 				}
 
+				// send data
 				data := supercall.TranscriptionData{
 					Source:                  w.config.Actor,
 					AgiId:                   w.config.AgiID,
 					ExtensionId:             w.config.ExtensionID,
 					DataId:                  dataID(fullTranscriptionID),
 					Transcription:           transcription,
-					Language:                w.config.Language,
-					TranslationEnabled:      w.isTranslationEnabled,
+					TranslationEnabled:      w.campaign.Translation.InUse,
 					TranslatedTranscription: translatedTranscription,
 					IsFinal:                 true,
 				}
-
 				err := w.supercall.SendData(supercall.TranscriptEvent, data)
 				if err != nil {
 					w.Shutdown(err)

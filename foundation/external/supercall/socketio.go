@@ -16,13 +16,10 @@ type Event string
 
 const (
 	apiTimeout = 5
-	apiToken   = "TxbA20O4S0KO"
 
 	authorizationEvent Event = "tellOnline"
 	AgiEvent           Event = "sendAgiData"
 	TranscriptEvent    Event = "sendTranscriptionApi"
-	TextEmotionEvent   Event = "sendTextEmotionApi"
-	VoiceEmotionEvent  Event = "sendVoiceEmotionApi"
 	ScamEvent          Event = "sendScamApi"
 	KeepAliveEvent     Event = "keepAlive"
 )
@@ -30,11 +27,13 @@ const (
 type Polling struct {
 	sid         string
 	apiEndpoint string
+	apiToken    string
 }
 
-func New(apiEndpoint string) *Polling {
+func New(apiEndpoint, apiToken string) *Polling {
 	return &Polling{
 		apiEndpoint: apiEndpoint,
+		apiToken:    apiToken,
 	}
 }
 
@@ -61,7 +60,7 @@ func (p *Polling) SendData(e Event, d interface{}) error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
-	req.Header.Add("Authorization", apiToken)
+	req.Header.Add("Authorization", p.apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -98,7 +97,7 @@ func (p *Polling) SetupConnection() error {
 		return err
 	}
 
-	if err := p.SendData(authorizationEvent, AuthorizationData{Token: apiToken}); err != nil {
+	if err := p.SendData(authorizationEvent, AuthorizationData{Token: p.apiToken}); err != nil {
 		return err
 	}
 
@@ -117,7 +116,7 @@ func (p *Polling) establishHandshake() error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
-	req.Header.Add("Authorization", apiToken)
+	req.Header.Add("Authorization", p.apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -167,7 +166,7 @@ func (p *Polling) upgradeWebsocket() error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
-	req.Header.Add("Authorization", apiToken)
+	req.Header.Add("Authorization", p.apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -203,7 +202,7 @@ func (p *Polling) keepConnection() error {
 	req = req.WithContext(ctx)
 	client := http.Client{}
 
-	req.Header.Add("Authorization", apiToken)
+	req.Header.Add("Authorization", p.apiToken)
 
 	resp, err := client.Do(req)
 	if err != nil {

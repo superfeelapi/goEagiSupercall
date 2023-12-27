@@ -2,20 +2,16 @@ package worker
 
 import (
 	"context"
-	"fmt"
 )
 
-func (w *Worker) speech2TextOperation() {
-	w.logger.Infow("worker: speech2TextOperation: G started")
-	defer w.logger.Infow("worker: speech2TextOperation: G completed")
+func (w *Worker) googleOperation() {
+	w.logger.Infow("worker: googleOperation: G started")
+	defer w.logger.Infow("worker: googleOperation: G completed")
 
-	defer close(w.interimTranscriptCh)
-	defer close(w.fullTranscriptCh)
-
-	errCh := w.google.StartStreaming(context.Background(), w.toGoogleCh)
+	errCh := w.google.StartStreaming(context.Background(), w.toSpeechCh)
 	googleCh := w.google.SpeechToTextResponse(context.Background())
 
-	w.logger.Infow("worker: speech2TextOperation: G listening")
+	w.logger.Infow("worker: googleOperation: G listening")
 
 	var transcriptionData string
 
@@ -28,20 +24,18 @@ func (w *Worker) speech2TextOperation() {
 
 			if google.Reinitialized {
 				w.fullTranscriptCh <- transcriptionData
-				w.logger.Infow("worker: speech2TextOperation: G reinitialized")
+				w.logger.Infow("worker: googleOperation: G reinitialized")
 				continue
 			}
 
 			switch isFinal {
 			case false:
-				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcript, "isFinal", isFinal)
-				w.eagi.Verbose(fmt.Sprintf("INTERIM TRANSCRIPTION: %s", transcript))
-				//w.interimTranscriptCh <- transcript
+				w.logger.Infow("worker: googleOperation:", "transcription", transcript, "isFinal", isFinal)
+				w.interimTranscriptCh <- transcript
 
 			case true:
-				w.logger.Infow("worker: speech2TextOperation:", "transcription", transcript, "isFinal", isFinal)
-				w.eagi.Verbose(fmt.Sprintf("FULL TRANSCRIPTION: %s", transcript))
-				//w.fullTranscriptCh <- transcript
+				w.logger.Infow("worker: googleOperation:", "transcription", transcript, "isFinal", isFinal)
+				w.fullTranscriptCh <- transcript
 			}
 
 		case err := <-errCh:
@@ -49,7 +43,7 @@ func (w *Worker) speech2TextOperation() {
 			return
 
 		case <-w.shut:
-			w.logger.Infow("worker: speech2TextOperation: received shut signal")
+			w.logger.Infow("worker: googleOperation: received shut signal")
 			return
 		}
 	}
