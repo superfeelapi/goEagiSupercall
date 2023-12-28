@@ -2,12 +2,16 @@ package worker
 
 import (
 	"encoding/json"
+	"fmt"
+	"path/filepath"
 )
 
 const (
 	agent    = "agent"
 	customer = "customer"
 )
+
+var audioFilenamePattern = "scamDetected-%s.wav"
 
 func (w *Worker) scamDetectOperation() {
 	w.logger.Infow("worker: scamDetectOperation: G started")
@@ -34,20 +38,60 @@ func (w *Worker) scamDetectOperation() {
 				switch data.Source {
 				case agent:
 					if w.config.Actor == agent {
-						_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
-						if err != nil {
-							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+						if w.campaign.Scam.InUse {
+							_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
+							if err != nil {
+								w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+							}
+							w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", agent)
+
+						} else {
+							var audioPath string
+							if w.campaign.Inbound.Azure.InUse {
+								languageCode := w.campaign.Inbound.Azure.LanguageCode[0]
+								audioName := fmt.Sprintf(audioFilenamePattern, languageCode)
+								filepath.Join(w.config.AsteriskAudioDirectory, audioName)
+							}
+							if w.campaign.Inbound.Google.InUse {
+								languageCode := w.campaign.Inbound.Google.LanguageCode
+								audioName := fmt.Sprintf(audioFilenamePattern, languageCode)
+								filepath.Join(w.config.AsteriskAudioDirectory, audioName)
+							}
+							_, err := w.eagi.StreamFile(audioPath, "1")
+							if err != nil {
+								w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+							}
+							w.logger.Infow("worker: scamDetectOperation", "streamFile", audioPath, "source", agent)
 						}
-						w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", agent)
 					}
 
 				case customer:
 					if w.config.Actor == customer {
-						_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
-						if err != nil {
-							w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+						if w.campaign.Scam.InUse {
+							_, err := w.eagi.StreamFile(w.campaign.Scam.AudioPath, "1")
+							if err != nil {
+								w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+							}
+							w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", customer)
+
+						} else {
+							var audioPath string
+							if w.campaign.Inbound.Azure.InUse {
+								languageCode := w.campaign.Inbound.Azure.LanguageCode[0]
+								audioName := fmt.Sprintf(audioFilenamePattern, languageCode)
+								filepath.Join(w.config.AsteriskAudioDirectory, audioName)
+							}
+							if w.campaign.Inbound.Google.InUse {
+								languageCode := w.campaign.Inbound.Google.LanguageCode
+								audioName := fmt.Sprintf(audioFilenamePattern, languageCode)
+								filepath.Join(w.config.AsteriskAudioDirectory, audioName)
+							}
+							_, err := w.eagi.StreamFile(audioPath, "1")
+							if err != nil {
+								w.logger.Errorw("worker: scamDetectOperation", "streamFile", err)
+							}
+							w.logger.Infow("worker: scamDetectOperation", "streamFile", audioPath, "source", customer)
 						}
-						w.logger.Infow("worker: scamDetectOperation", "streamFile", w.campaign.Scam.AudioPath, "source", customer)
 					}
 
 				default:

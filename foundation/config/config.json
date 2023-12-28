@@ -15,7 +15,9 @@
           },
           "scam": {
             "in_use": true,
-            "audio_path": "/var/lib/sounds/development/scamDetected-th-TH.wav"
+            "tts_voice": "en-US-Wavenet-D",
+            "audio_content": "This is a scam call, please hang up immediately",
+            "audio_path": "/var/lib/sounds/scam/scamDetected-th-TH.wav"
           },
           "inbound": {
             "google": {
