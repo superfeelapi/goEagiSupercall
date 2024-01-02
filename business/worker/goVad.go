@@ -5,7 +5,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/superfeelapi/goEagiSupercall/foundation/external/goVad"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 	pb "github.com/superfeelapi/goVad/proto"
 )
@@ -16,25 +15,16 @@ func (w *Worker) goVadOperation() {
 
 	defer w.state.Set(state.GoVad, false)
 
-	sessionID := <-w.idCh
-
-	grpc := goVad.New(w.config.GrpcAddress, w.config.GrpcCertFilePath, w.config.Actor, w.config.AgiID, sessionID)
-	err := grpc.SetupConnection()
-	if err != nil {
-		w.logger.Errorw("worker: goVadOperation", "ERROR", err)
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = grpc.RegisterRoom(ctx)
+	err := w.goVad.RegisterRoom(ctx)
 	if err != nil {
 		w.logger.Errorw("worker: goVadOperation", "ERROR", err)
 		return
 	}
 
-	err = grpc.CheckRoomStatus(ctx)
+	err = w.goVad.CheckRoomStatus(ctx)
 	if err != nil {
 		w.logger.Errorw("worker: goVadOperation", "ERROR", err)
 		return
@@ -43,7 +33,7 @@ func (w *Worker) goVadOperation() {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, err := grpc.Client.Send(ctx)
+	stream, err := w.goVad.Client.Send(ctx)
 	if err != nil {
 		w.logger.Errorw("worker: goVadOperation", "ERROR", err)
 		return
@@ -74,7 +64,7 @@ func (w *Worker) goVadOperation() {
 	w.logger.Infow("worker: goVadOperation: G listening")
 	for {
 		select {
-		case vad := <-w.grpcCh:
+		case vad := <-w.toGoVadCh:
 			err := stream.Send(&pb.Data{
 				Source:   w.config.Actor,
 				AgiId:    w.config.AgiID,

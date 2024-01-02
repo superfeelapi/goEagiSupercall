@@ -2,17 +2,18 @@ package logger
 
 import (
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func New(logDirectory string, campaignID string, actor string) (*zap.SugaredLogger, error) {
-	campaignDirectory := logDirectory + campaignID
-	logPath := campaignDirectory + "/" + actor + ".log"
+	logCampaignDirectory := filepath.Join(logDirectory, campaignID)
+	logPath := filepath.Join(logCampaignDirectory, actor+".log")
 
-	if _, err := os.Stat(campaignDirectory); os.IsNotExist(err) {
-		if err := os.MkdirAll(campaignDirectory, os.ModePerm); err != nil {
+	if _, err := os.Stat(logCampaignDirectory); os.IsNotExist(err) {
+		if err := os.MkdirAll(logCampaignDirectory, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}

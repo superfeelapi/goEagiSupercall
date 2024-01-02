@@ -1,4 +1,4 @@
-package wauchat
+package textAnalysis
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package voicebot
+package voiceAnalysis
 
 type Amplitude struct {
 	Amplitude float64 `json:"amplitude"`

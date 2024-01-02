@@ -24,7 +24,8 @@ func GetCampaign(eagiConfigPath string, campaignID string) (Campaign, error) {
 	if err := json.Unmarshal(bytes, &config); err != nil {
 		return Campaign{}, err
 	}
-	campaign, exists := campaignExists(config.Eagi, campaignID)
+
+	campaign, exists := campaignExists(config.Projects, campaignID)
 	if !exists {
 		return Campaign{}, fmt.Errorf("campaign[%s] does not exist", campaignID)
 	}
@@ -32,76 +33,81 @@ func GetCampaign(eagiConfigPath string, campaignID string) (Campaign, error) {
 	return campaign, nil
 }
 
-func GetCampaignName(c Campaign) string {
-	return c.Name
-}
-
-func GetLanguage(c Campaign, boundType string) string {
+func (c Campaign) IsGoogleInUse(boundType string) (bool, error) {
 	switch boundType {
 	case "inbound":
-		return c.Inbound.Language
+		return c.Inbound.Google.InUse, nil
 
 	case "outbound":
-		return c.Outbound.Language
+		return c.Inbound.Google.InUse, nil
+
+	default:
+		return false, fmt.Errorf("bound type[%s] does not exist", boundType)
 	}
-	return ""
 }
 
-func GetLanguageCode(c Campaign, boundType string) string {
+func (c Campaign) IsAzureInUse(boundType string) (bool, error) {
 	switch boundType {
 	case "inbound":
-		return c.Inbound.LanguageCode
+		return c.Inbound.Azure.InUse, nil
 
 	case "outbound":
-		return c.Outbound.LanguageCode
+		return c.Inbound.Azure.InUse, nil
+
+	default:
+		return false, fmt.Errorf("bound type[%s] does not exist", boundType)
 	}
-	return ""
 }
 
-func IsTranslationEnabled(c Campaign, boundType string) bool {
+func (c Campaign) GetGoogleLanguageCode(boundType string) (string, error) {
 	switch boundType {
 	case "inbound":
-		return c.Inbound.Translation
+		return c.Inbound.Google.LanguageCode, nil
 
 	case "outbound":
-		return c.Outbound.Translation
+		return c.Inbound.Google.LanguageCode, nil
+
+	default:
+		return "", fmt.Errorf("bound type[%s] does not exist", boundType)
 	}
-	return false
 }
 
-func GetTargetLanguageCode(c Campaign, boundType string) string {
+func (c Campaign) GetAzureLanguageCode(boundType string) ([]string, error) {
 	switch boundType {
 	case "inbound":
-		return c.Inbound.TargetedLanguageCode
+		return c.Inbound.Azure.LanguageCode, nil
 
 	case "outbound":
-		return c.Outbound.TargetedLanguageCode
+		return c.Inbound.Azure.LanguageCode, nil
+
+	default:
+		return nil, fmt.Errorf("bound type[%s] does not exist", boundType)
 	}
-	return ""
 }
 
-func GetSpeechContext(c Campaign, boundType string) []string {
-	var scMap map[string]string
+func (c Campaign) GetGoogleSpeechContext(boundType string) ([]string, error) {
+	speechContext := make([]string, 0)
 	switch boundType {
 	case "inbound":
-		scMap = c.Inbound.SpeechContext
+		for _, v := range c.Inbound.Google.SpeechContext {
+			speechContext = append(speechContext, v)
+		}
+		return speechContext, nil
 
 	case "outbound":
-		scMap = c.Outbound.SpeechContext
+		for _, v := range c.Outbound.Google.SpeechContext {
+			speechContext = append(speechContext, v)
+		}
+		return speechContext, nil
+
+	default:
+		return nil, fmt.Errorf("bound type[%s] does not exist", boundType)
 	}
-
-	scSlice := make([]string, 0, len(scMap))
-
-	for _, v := range scMap {
-		scSlice = append(scSlice, v)
-	}
-
-	return scSlice
 }
 
-func campaignExists(p []Project, campaignID string) (Campaign, bool) {
-	for _, v := range p {
-		for _, campaign := range v.Campaigns {
+func campaignExists(projects []Project, campaignID string) (Campaign, bool) {
+	for _, project := range projects {
+		for _, campaign := range project.Campaigns {
 			if campaign.ID == campaignID {
 				return campaign, true
 			}

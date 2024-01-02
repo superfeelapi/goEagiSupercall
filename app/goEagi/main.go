@@ -3,15 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/ardanlabs/conf/v3"
+	"github.com/gorilla/websocket"
 	"github.com/superfeelapi/goEagi"
 	"github.com/superfeelapi/goEagiSupercall/business/worker"
 	"github.com/superfeelapi/goEagiSupercall/foundation/config"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/goVad"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"github.com/superfeelapi/goEagiSupercall/foundation/logger"
-	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
 )
 
 var (
@@ -28,21 +31,21 @@ func main() {
 	cfg := struct {
 		conf.Version
 		Eagi struct {
-			AgiID              string
-			Actor              string
-			ExtensionID        string
-			BoundType          string
-			CampaignID         string
-			CampaignName       string
-			Language           string
-			LanguageCode       string
-			TargetLanguageCode string
-			Translation        bool
-			SpeechContext      []string
-			ConfigFilePath     string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
+			AgiID          string
+			Actor          string
+			ExtensionID    string
+			BoundType      string
+			CampaignID     string
+			ConfigFilePath string `conf:"default:/etc/asterisk/ami_server.json,noprint"`
 		}
 		Google struct {
 			PrivateKeyPath string `conf:"default:/var/lib/asterisk/agi-bin/boxwood-pilot-299014-769b582bc376.json,noprint"`
+		}
+		Websocket struct {
+			Scheme string `conf:"default:ws"`
+			Host   string `conf:"default:20.2.83.74:8080"`
+			Path   string `conf:"default:/azure"`
+			ApiKey string
 		}
 		GoVad struct {
 			CertFilePath string `conf:"default:/var/lib/asterisk/agi-bin/grpc/selfsigned.crt,noprint"`
@@ -50,20 +53,15 @@ func main() {
 		}
 		Supercall struct {
 			ApiEndpoint string `conf:"default:https://ticket-api.superceed.com:9000/socket.io/?EIO=4&transport=polling,noprint"`
+			ApiToken    string
 		}
-		Voicebot struct {
-			ApiKey                       string `conf:"default:777,noprint"`
+		VoiceAnalysis struct {
+			ApiKey                       string
 			AgentVoiceEmotionEndpoint    string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=none,noprint"`
 			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
 		}
-		Wauchat struct {
+		TextAnalysis struct {
 			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
-		}
-		Redis struct {
-			Address              string `conf:"default:redis-10106.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:10106"`
-			Password             string `conf:"default:dq1BygKhg4rtpmTBRlG3Rt3uh4oG0uPu"`
-			TranscriptionChannel string `conf:"default:scamBot:transcription"`
-			ScamBotChannel       string `conf:"default:scamBot:"`
 		}
 		Asterisk struct {
 			AudioDirectory string `conf:"default:/var/lib/asterisk/sounds/en/"`
@@ -118,6 +116,13 @@ func main() {
 	cfg.Eagi.BoundType = strings.TrimSpace(eagi.Env["arg_4"])
 
 	// =================================================================================================================
+	// Local Environment Variables
+
+	cfg.Websocket.ApiKey = os.Getenv("AZURE_WEBSOCKET_API_KEY")
+	cfg.Supercall.ApiToken = os.Getenv("SUPERCALL_SOCKETIO_API_TOKEN")
+	cfg.VoiceAnalysis.ApiKey = os.Getenv("VOICEBOT_API_KEY")
+
+	// =================================================================================================================
 	// Application Logger
 
 	log, err := logger.New(cfg.Logger.LogDirectory, cfg.Eagi.CampaignID, cfg.Eagi.Actor)
@@ -135,13 +140,6 @@ func main() {
 		log.Errorw("startup", "ERROR", err)
 	}
 
-	cfg.Eagi.CampaignName = config.GetCampaignName(campaignConfig)
-	cfg.Eagi.Language = config.GetLanguage(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.LanguageCode = config.GetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.SpeechContext = config.GetSpeechContext(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.TargetLanguageCode = config.GetTargetLanguageCode(campaignConfig, cfg.Eagi.BoundType)
-	cfg.Eagi.Translation = config.IsTranslationEnabled(campaignConfig, cfg.Eagi.BoundType)
-
 	// =================================================================================================================
 	// Configuration Stringify
 
@@ -152,19 +150,82 @@ func main() {
 	log.Infow("startup", "config", out)
 
 	// =================================================================================================================
-	// Google Speech2Text
+	// Speech2Text
 
-	google, err := goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, cfg.Eagi.LanguageCode, cfg.Eagi.SpeechContext)
+	var google *goEagi.GoogleService
+	var azure *websocket.Conn
+
+	// Google Speech2Text
+	googleInUse, err := campaignConfig.IsGoogleInUse(cfg.Eagi.BoundType)
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+	if googleInUse {
+		languageCode, err := campaignConfig.GetGoogleLanguageCode(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		speechContext, err := campaignConfig.GetGoogleSpeechContext(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		google, err = goEagi.NewGoogleService(cfg.Google.PrivateKeyPath, languageCode, speechContext)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+	}
+
+	// Azure Speech2Text
+	azureInUse, err := campaignConfig.IsAzureInUse(cfg.Eagi.BoundType)
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+	if azureInUse {
+		u := url.URL{
+			Scheme: cfg.Websocket.Scheme,
+			Host:   cfg.Websocket.Host,
+			Path:   cfg.Websocket.Path,
+		}
+
+		azure, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		languageCode, err := campaignConfig.GetAzureLanguageCode(cfg.Eagi.BoundType)
+		if err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+
+		registerData := struct {
+			ApiKey       string
+			LanguageCode []string
+		}{
+			ApiKey:       cfg.Websocket.ApiKey,
+			LanguageCode: languageCode,
+		}
+
+		if err := azure.WriteJSON(registerData); err != nil {
+			log.Errorw("startup", "ERROR", err)
+		}
+	}
+
+	// =================================================================================================================
+	// Supercall
+
+	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
+	err = superCall.SetupConnection()
 	if err != nil {
 		log.Errorw("startup", "ERROR", err)
 	}
 
 	// =================================================================================================================
-	// Redis
+	// GoVad
 
-	cfg.Redis.ScamBotChannel = fmt.Sprintf("%s%s", cfg.Redis.ScamBotChannel, cfg.Eagi.AgiID)
-
-	redisClient, err := redis.New(cfg.Redis.Address, cfg.Redis.Password, cfg.Redis.TranscriptionChannel, cfg.Redis.ScamBotChannel, log)
+	govad := goVad.New(cfg.GoVad.GrpcAddress, cfg.GoVad.CertFilePath, cfg.Eagi.Actor, cfg.Eagi.AgiID, superCall.GetSessionID())
+	err = govad.SetupConnection()
 	if err != nil {
 		log.Errorw("startup", "ERROR", err)
 	}
@@ -173,30 +234,25 @@ func main() {
 	// Run Worker
 
 	workerCh := worker.Run(worker.Settings{
-		Logger: log,
-		Google: google,
-		Redis:  redisClient,
-		Eagi:   eagi,
+		Logger:    log,
+		Eagi:      eagi,
+		Google:    google,
+		Azure:     azure,
+		Supercall: superCall,
+		GoVad:     govad,
+		Campaign:  campaignConfig,
 		Config: worker.Config{
-			Actor:                    strings.ToLower(cfg.Eagi.Actor),
-			AgiID:                    cfg.Eagi.AgiID,
-			ExtensionID:              cfg.Eagi.ExtensionID,
-			CampaignName:             cfg.Eagi.CampaignName,
-			Language:                 cfg.Eagi.Language,
-			Translation:              cfg.Eagi.Translation,
-			SourceLanguageCode:       cfg.Eagi.LanguageCode,
-			TargetLanguageCode:       cfg.Eagi.TargetLanguageCode,
-			GooglePrivateKeyPath:     cfg.Google.PrivateKeyPath,
-			GrpcAddress:              cfg.GoVad.GrpcAddress,
-			GrpcCertFilePath:         cfg.GoVad.CertFilePath,
-			SupercallApiEndpoint:     cfg.Supercall.ApiEndpoint,
-			VoicebotApiKey:           cfg.Voicebot.ApiKey,
-			VoicebotAgentEndpoint:    cfg.Voicebot.AgentVoiceEmotionEndpoint,
-			VoicebotCustomerEndpoint: cfg.Voicebot.CustomerVoiceEmotionEndpoint,
-			WauchatEndpoint:          cfg.Wauchat.TextEmotionEndpoint,
-			AudioDir:                 cfg.Vad.AudioDir,
-			AmplitudeThreshold:       cfg.Vad.AmplitudeThreshold,
-			AsteriskAudioDirectory:   cfg.Asterisk.AudioDirectory,
+			Actor:                         strings.ToLower(cfg.Eagi.Actor),
+			AgiID:                         cfg.Eagi.AgiID,
+			ExtensionID:                   cfg.Eagi.ExtensionID,
+			GooglePrivateKeyPath:          cfg.Google.PrivateKeyPath,
+			VoiceAnalysisApiKey:           cfg.VoiceAnalysis.ApiKey,
+			VoiceAnalysisAgentEndpoint:    cfg.VoiceAnalysis.AgentVoiceEmotionEndpoint,
+			VoiceAnalysisCustomerEndpoint: cfg.VoiceAnalysis.CustomerVoiceEmotionEndpoint,
+			TextAnalysisEndpoint:          cfg.TextAnalysis.TextEmotionEndpoint,
+			VadAudioDir:                   cfg.Vad.AudioDir,
+			VadAmplitudeThreshold:         cfg.Vad.AmplitudeThreshold,
+			AsteriskAudioDirectory:        cfg.Asterisk.AudioDirectory,
 		},
 	})
 

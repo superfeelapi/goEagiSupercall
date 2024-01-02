@@ -2,81 +2,70 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/abadojack/whatlanggo"
 	"github.com/superfeelapi/goEagiSupercall/foundation/state"
 )
 
-func (w *Worker) speech2TextOperation() {
-	w.logger.Infow("worker: speech2TextOperation: G started")
-	defer w.logger.Infow("worker: speech2TextOperation: G completed")
+func (w *Worker) googleOperation() {
+	w.logger.Infow("worker: googleOperation: G started")
+	defer w.logger.Infow("worker: googleOperation: G completed")
 
-	defer close(w.interimTranscriptCh)
-	defer close(w.fullTranscriptCh)
-	defer close(w.wauchatTranscriptCh)
-	defer close(w.paceTranscriptCh)
-
-	errCh := w.google.StartStreaming(context.Background(), w.toGoogleCh)
+	errCh := w.google.StartStreaming(context.Background(), w.toSpeechCh)
 	googleCh := w.google.SpeechToTextResponse(context.Background())
 
-	g := newGoogleResponse()
+	var transcriptionData string
 
-	w.logger.Infow("worker: speech2TextOperation: G listening")
+	w.logger.Infow("worker: googleOperation: G listening")
 	for {
 		select {
 		case google := <-googleCh:
+			transcript := google.Result.Alternatives[0].Transcript
+			transcriptionData = transcript
+			isFinal := google.Result.IsFinal
+
 			if google.Reinitialized {
-				w.logger.Infow("worker: speech2TextOperation:", "agiID", w.config.AgiID, "info[Reinitialization]", google.Info)
-				transcrpt := g.getTranscription()
-				isFnl := g.getIsFinal()
+				w.fullTranscriptCh <- transcriptionData
 
-				if !isFnl {
-					if isStringNotEmpty(transcrpt) {
-						w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", true)
-						w.fullTranscriptCh <- transcrpt
-
-						if w.state.Get(state.Wauchat) {
-							w.wauchatTranscriptCh <- transcrpt
-						}
-
-						if w.state.Get(state.Voicebot) {
-							w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcrpt)
-						}
-					}
+				if w.state.Get(state.Wauchat) {
+					w.textEmotionTranscriptCh <- transcript
 				}
-			} else {
-				transcrpt := google.Result.Alternatives[0].Transcript
-				isFnl := google.Result.IsFinal
 
-				g.setTranscription(transcrpt)
-				g.setIsFinal(isFnl)
+				if w.state.Get(state.Voicebot) {
+					w.paceTranscriptCh <- transcriptionLength(transcript)
+				}
 
-				switch isFnl {
-				case false:
-					w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
-					w.interimTranscriptCh <- transcrpt
+				w.logger.Infow("worker: googleOperation: G reinitialized")
+				continue
+			}
 
-				case true:
-					w.logger.Infow("worker: speech2TextOperation:", "transcription", transcrpt, "isFinal", isFnl)
-					w.fullTranscriptCh <- transcrpt
+			switch isFinal {
+			case false:
+				w.logger.Infow("worker: googleOperation:", "transcription", transcript, "isFinal", isFinal)
+				w.interimTranscriptCh <- transcript
 
-					if w.state.Get(state.Wauchat) {
-						w.wauchatTranscriptCh <- transcrpt
-					}
+			case true:
+				w.logger.Infow("worker: googleOperation:", "transcription", transcript, "isFinal", isFinal)
+				w.fullTranscriptCh <- transcript
 
-					if w.state.Get(state.Voicebot) {
-						w.paceTranscriptCh <- transcriptionLength(w.config.Language, transcrpt)
-					}
+				if w.state.Get(state.Wauchat) {
+					w.textEmotionTranscriptCh <- transcript
+				}
+
+				if w.state.Get(state.Voicebot) {
+					w.paceTranscriptCh <- transcriptionLength(transcript)
 				}
 			}
 
 		case err := <-errCh:
-			w.Shutdown(err)
+			w.Shutdown(fmt.Errorf("worker: googleOperation: %w", err))
 			return
 
 		case <-w.shut:
-			w.logger.Infow("worker: speech2TextOperation: received shut signal")
+			w.logger.Infow("worker: googleOperation: received shut signal")
 			return
 		}
 	}
@@ -84,24 +73,21 @@ func (w *Worker) speech2TextOperation() {
 
 // =================================================================================================================
 
-func transcriptionLength(language string, s string) int {
-	switch language {
-	case "english":
-		return len(strings.Split(s, " "))
-	case "chinese":
-		return utf8.RuneCountInString(s)
-	case "japan":
-		return utf8.RuneCountInString(s)
-	default:
-		return len(strings.Split(s, " "))
-	}
-}
+func transcriptionLength(text string) int {
+	info := whatlanggo.Detect(text)
 
-func isStringNotEmpty(input string) bool {
-	for _, char := range input {
-		if char != ' ' && char != '\t' && char != '\n' {
-			return true
-		}
+	switch whatlanggo.Scripts[info.Script] {
+	case "Latin":
+		return len(strings.Fields(text))
+
+	case "Han", "Arabic":
+		return utf8.RuneCountInString(text)
 	}
-	return false
+
+	switch info.Lang.String() {
+	case "Japanese":
+		return utf8.RuneCountInString(text)
+	}
+
+	return utf8.RuneCountInString(text)
 }

@@ -1,4 +1,4 @@
-package voicebot
+package voiceAnalysis
 
 import (
 	"bytes"

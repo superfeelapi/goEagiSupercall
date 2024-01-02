@@ -1,45 +1,42 @@
 package worker
 
 import (
+	"github.com/gorilla/websocket"
 	"github.com/superfeelapi/goEagi"
-	"github.com/superfeelapi/goEagiSupercall/foundation/redis"
+	"github.com/superfeelapi/goEagiSupercall/foundation/config"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/goVad"
+	"github.com/superfeelapi/goEagiSupercall/foundation/external/supercall"
 	"go.uber.org/zap"
 )
 
 type Settings struct {
 	Config
-	Logger *zap.SugaredLogger
-	Google *goEagi.GoogleService
-	Redis  *redis.Redis
-	Eagi   *goEagi.Eagi
+	Logger    *zap.SugaredLogger
+	Eagi      *goEagi.Eagi
+	Google    *goEagi.GoogleService
+	Azure     *websocket.Conn
+	Supercall *supercall.Polling
+	GoVad     *goVad.Vad
+	Campaign  config.Campaign
 }
 
 type Config struct {
-	Actor                    string
-	AgiID                    string
-	ExtensionID              string
-	CampaignName             string
-	Language                 string
-	Translation              bool
-	SourceLanguageCode       string
-	TargetLanguageCode       string
-	GooglePrivateKeyPath     string
-	GrpcAddress              string
-	GrpcCertFilePath         string
-	SupercallApiEndpoint     string
-	VoicebotApiKey           string
-	VoicebotAgentEndpoint    string
-	VoicebotCustomerEndpoint string
-	WauchatEndpoint          string
-	AudioDir                 string
-	AmplitudeThreshold       float64
-	AsteriskAudioDirectory   string
+	Actor                         string
+	AgiID                         string
+	ExtensionID                   string
+	GooglePrivateKeyPath          string
+	VoiceAnalysisApiKey           string
+	VoiceAnalysisAgentEndpoint    string
+	VoiceAnalysisCustomerEndpoint string
+	TextAnalysisEndpoint          string
+	VadAudioDir                   string
+	VadAmplitudeThreshold         float64
+	AsteriskAudioDirectory        string
 }
 
 // =====================================================================================================================
 
-type ScamData struct {
-	Source string `json:"source"`
-	AgiId  string `json:"agi_id"`
-	IsScam bool   `json:"is_scam"`
+type AzureResult struct {
+	Transcription string `json:"transcription"`
+	IsFinal       bool   `json:"is_final"`
 }

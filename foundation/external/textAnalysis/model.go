@@ -1,4 +1,4 @@
-package wauchat
+package textAnalysis
 
 type Result struct {
 	Class      string  `json:"class"`

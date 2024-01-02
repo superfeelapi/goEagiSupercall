@@ -1,6 +1,9 @@
 package worker
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/superfeelapi/goEagi"
@@ -11,10 +14,15 @@ func (w *Worker) vadOperation() {
 	w.logger.Infow("worker: vadOperation: G started")
 	defer w.logger.Infow("worker: vadOperation: G completed")
 
-	defer close(w.audioPathCh)
-	defer close(w.grpcCh)
+	audioDirectory := filepath.Join(w.config.VadAudioDir, w.campaign.ID, "/")
+	w.logger.Infow("worker: vadOperation:", "audioDirectory", audioDirectory)
 
-	audioDir := w.config.AudioDir + w.config.CampaignName + "/"
+	if _, err := os.Stat(audioDirectory); os.IsNotExist(err) {
+		if err := os.MkdirAll(audioDirectory, os.ModePerm); err != nil {
+			w.Shutdown(fmt.Errorf("worker: vadOperation: %w", err))
+			return
+		}
+	}
 
 	var latestFrame []byte
 	var speechFrame []byte
@@ -36,23 +44,23 @@ func (w *Worker) vadOperation() {
 					return
 				}
 
-				switch amp > w.config.AmplitudeThreshold {
+				switch amp > w.config.VadAmplitudeThreshold {
 
 				case true:
 					if w.state.Get(state.GoVad) {
-						w.grpcCh <- true
+						w.toGoVadCh <- true
 					}
 					isSpeech = true
 					speechFrame = append(speechFrame, latestFrame...)
 
 				case false:
 					if w.state.Get(state.GoVad) {
-						w.grpcCh <- false
+						w.toGoVadCh <- false
 					}
 					if isSpeech {
 						if w.state.Get(state.Voicebot) {
 							audioFile := createAudioFile(w.config.AgiID)
-							audioFilepath, err := goEagi.GenerateAudio(speechFrame, audioDir, audioFile)
+							audioFilepath, err := goEagi.GenerateAudio(speechFrame, audioDirectory, audioFile)
 							if err != nil {
 								w.Shutdown(err)
 								return
