@@ -69,14 +69,14 @@ eagi/customer:
 .PHONY: eagi/both
 eagi/both:
 	env GOOS=linux GOARCH=amd64 \
-    		go build -o ./app/goEagi/scam/Agent \
+    		go build -o ./var/lib/asterisk/agi-bin/Agent \
     			-ldflags "-s -w \
     			-X main.actor=agent \
     			-X main.version=${git_description} \
     			-X main.buildTime=${current_time}" \
     			./app/goEagi/
 	env GOOS=linux GOARCH=amd64 \
-    		go build -o ./app/goEagi/scam/Customer \
+    		go build -o ./var/lib/asterisk/agi-bin/Customer \
     			-ldflags "-s -w \
     			-X main.actor=customer \
     			-X main.version=${git_description} \
