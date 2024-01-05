@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -45,7 +46,7 @@ func main() {
 			Scheme string `conf:"default:ws"`
 			Host   string `conf:"default:20.2.83.74:8080"`
 			Path   string `conf:"default:/azure"`
-			ApiKey string
+			ApiKey string `conf:"default:cp132465,noprint"`
 		}
 		GoVad struct {
 			CertFilePath string `conf:"default:/var/lib/asterisk/agi-bin/grpc/selfsigned.crt,noprint"`
@@ -53,10 +54,10 @@ func main() {
 		}
 		Supercall struct {
 			ApiEndpoint string `conf:"default:https://ticket-api.superceed.com:9000/socket.io/?EIO=4&transport=polling,noprint"`
-			ApiToken    string
+			ApiToken    string `conf:"default:TxbA20O4S0KO,noprint"`
 		}
 		VoiceAnalysis struct {
-			ApiKey                       string
+			ApiKey                       string `conf:"default:777,noprint"`
 			AgentVoiceEmotionEndpoint    string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=none,noprint"`
 			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
 		}
@@ -116,13 +117,6 @@ func main() {
 	cfg.Eagi.BoundType = strings.TrimSpace(eagi.Env["arg_4"])
 
 	// =================================================================================================================
-	// Local Environment Variables
-
-	cfg.Websocket.ApiKey = os.Getenv("AZURE_WEBSOCKET_API_KEY")
-	cfg.Supercall.ApiToken = os.Getenv("SUPERCALL_SOCKETIO_API_TOKEN")
-	cfg.VoiceAnalysis.ApiKey = os.Getenv("VOICEBOT_API_KEY")
-
-	// =================================================================================================================
 	// Application Logger
 
 	log, err := logger.New(cfg.Logger.LogDirectory, cfg.Eagi.CampaignID, cfg.Eagi.Actor)
@@ -148,6 +142,24 @@ func main() {
 		log.Errorw("startup", "ERROR", err)
 	}
 	log.Infow("startup", "config", out)
+
+	// =================================================================================================================
+	// Supercall
+
+	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
+	err = superCall.SetupConnection()
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+
+	// =================================================================================================================
+	// GoVad
+
+	govad := goVad.New(cfg.GoVad.GrpcAddress, cfg.GoVad.CertFilePath, cfg.Eagi.Actor, cfg.Eagi.AgiID, superCall.GetSessionID())
+	err = govad.SetupConnection()
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
 
 	// =================================================================================================================
 	// Speech2Text
@@ -189,7 +201,7 @@ func main() {
 			Path:   cfg.Websocket.Path,
 		}
 
-		azure, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+		azure, _, err = websocket.DefaultDialer.Dial(u.String(), http.Header{"api-key": []string{cfg.Websocket.ApiKey}})
 		if err != nil {
 			log.Errorw("startup", "ERROR", err)
 		}
@@ -200,34 +212,14 @@ func main() {
 		}
 
 		registerData := struct {
-			ApiKey       string
 			LanguageCode []string
 		}{
-			ApiKey:       cfg.Websocket.ApiKey,
 			LanguageCode: languageCode,
 		}
 
 		if err := azure.WriteJSON(registerData); err != nil {
 			log.Errorw("startup", "ERROR", err)
 		}
-	}
-
-	// =================================================================================================================
-	// Supercall
-
-	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
-	err = superCall.SetupConnection()
-	if err != nil {
-		log.Errorw("startup", "ERROR", err)
-	}
-
-	// =================================================================================================================
-	// GoVad
-
-	govad := goVad.New(cfg.GoVad.GrpcAddress, cfg.GoVad.CertFilePath, cfg.Eagi.Actor, cfg.Eagi.AgiID, superCall.GetSessionID())
-	err = govad.SetupConnection()
-	if err != nil {
-		log.Errorw("startup", "ERROR", err)
 	}
 
 	// =================================================================================================================
