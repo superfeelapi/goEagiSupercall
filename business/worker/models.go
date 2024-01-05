@@ -31,7 +31,6 @@ type Config struct {
 	TextAnalysisEndpoint          string
 	VadAudioDir                   string
 	VadAmplitudeThreshold         float64
-	AsteriskAudioDirectory        string
 }
 
 // =====================================================================================================================

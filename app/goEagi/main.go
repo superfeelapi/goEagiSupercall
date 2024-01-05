@@ -64,9 +64,6 @@ func main() {
 		TextAnalysis struct {
 			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
 		}
-		Asterisk struct {
-			AudioDirectory string `conf:"default:/var/lib/asterisk/sounds/en/"`
-		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`
 		}
@@ -244,7 +241,6 @@ func main() {
 			TextAnalysisEndpoint:          cfg.TextAnalysis.TextEmotionEndpoint,
 			VadAudioDir:                   cfg.Vad.AudioDir,
 			VadAmplitudeThreshold:         cfg.Vad.AmplitudeThreshold,
-			AsteriskAudioDirectory:        cfg.Asterisk.AudioDirectory,
 		},
 	})
 
