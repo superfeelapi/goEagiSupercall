@@ -10,7 +10,7 @@ func (w *Worker) azureOperation() {
 	w.logger.Infow("worker: azureOperation: G started")
 	defer w.logger.Infow("worker: azureOperation: G completed")
 
-	azureResultCh := make(chan AzureResult)
+	azureResultCh := make(chan AzureResult, 10)
 
 	go func(conn *websocket.Conn) {
 		w.logger.Infow("worker: azureOperation: G started to listen for JSON")
@@ -23,32 +23,33 @@ func (w *Worker) azureOperation() {
 				w.Shutdown(fmt.Errorf("worker: azureOperation: G:json: conn.ReadJSON: %w", err))
 				return
 			}
+
 			azureResultCh <- result
 		}
 	}(w.azure)
 
-	go func(conn *websocket.Conn) {
-		w.logger.Infow("worker: azureOperation: G started to listen for MESSAGE")
-		defer w.logger.Infow("worker: azureOperation: G completed to listen for MESSAGE")
+	//go func(conn *websocket.Conn) {
+	//	w.logger.Infow("worker: azureOperation: G started to listen for MESSAGE")
+	//	defer w.logger.Infow("worker: azureOperation: G completed to listen for MESSAGE")
+	//
+	//	for {
+	//		messageType, message, err := conn.ReadMessage()
+	//		if err != nil {
+	//			w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: conn.ReadMessage: %w", err))
+	//			return
+	//		}
+	//		switch messageType {
+	//		case websocket.CloseMessage:
+	//			w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: received close message: %s", string(message)))
+	//			return
+	//
+	//		case websocket.PongMessage:
+	//			w.logger.Infow("worker: azureOperation: G:message: received pong message: %s", string(message))
+	//		}
+	//	}
+	//}(w.azure)
 
-		for {
-			messageType, message, err := conn.ReadMessage()
-			if err != nil {
-				w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: conn.ReadMessage: %w", err))
-				return
-			}
-			switch messageType {
-			case websocket.CloseMessage:
-				w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: received close message: %s", string(message)))
-				return
-
-			case websocket.PongMessage:
-				w.logger.Infow("worker: azureOperation: G:message: received pong message: %s", string(message))
-			}
-		}
-	}(w.azure)
-
-	go func() {
+	go func(azureResultCh <-chan AzureResult) {
 		w.logger.Infow("worker: azureOperation: G started to listen for TRANSCRIPTION")
 		defer w.logger.Infow("worker: azureOperation: G completed to listen for TRANSCRIPTION")
 		for {
@@ -57,18 +58,18 @@ func (w *Worker) azureOperation() {
 				return
 
 			case result := <-azureResultCh:
+				w.logger.Infow("worker: azureOperation:", "transcription", result.Transcription, "isFinal", result.IsFinal)
+
 				switch result.IsFinal {
 				case false:
 					w.interimTranscriptCh <- result.Transcription
-					w.logger.Infow("worker: googleOperation:", "transcription", result.Transcription, "isFinal", result.IsFinal)
 
 				case true:
 					w.fullTranscriptCh <- result.Transcription
-					w.logger.Infow("worker: googleOperation:", "transcription", result.Transcription, "isFinal", result.IsFinal)
 				}
 			}
 		}
-	}()
+	}(azureResultCh)
 
 	w.logger.Infow("worker: azureOperation: G listening")
 	for {

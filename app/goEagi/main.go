@@ -44,11 +44,11 @@ func main() {
 			Scheme string `conf:"default:ws"`
 			Host   string `conf:"default:20.2.83.74:8080"`
 			Path   string `conf:"default:/azure"`
-			ApiKey string
+			ApiKey string `conf:"default:cp132465"`
 		}
 		Supercall struct {
 			ApiEndpoint string `conf:"default:https://ticket-api.superceed.com:9000/socket.io/?EIO=4&transport=polling,noprint"`
-			ApiToken    string
+			ApiToken    string `conf:"default:TxbA20O4S0KO"`
 		}
 		Redis struct {
 			Address              string `conf:"default:redis-10106.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:10106"`
@@ -89,13 +89,6 @@ func main() {
 		fmt.Printf("Build time:\t%s\n", buildTime)
 		os.Exit(0)
 	}
-
-	// =================================================================================================================
-	// Local Environment Variables
-
-	cfg.Websocket.ApiKey = os.Getenv("AZURE_WEBSOCKET_API_KEY")
-	cfg.Supercall.ApiToken = os.Getenv("SUPERCALL_SOCKETIO_API_TOKEN")
-	cfg.Redis.Password = os.Getenv("REDIS_PASSWORD")
 
 	// =================================================================================================================
 	// Eagi Environment Variables

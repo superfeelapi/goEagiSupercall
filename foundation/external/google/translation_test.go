@@ -10,7 +10,7 @@ const googleCred = "../../../boxwood-pilot-299014-769b582bc376.json"
 
 func TestTranslation_Translate(t *testing.T) {
 	text := "God bless you"
-	translation, err := google.NewTranslation(googleCred, "en", "zh-HK")
+	translation, err := google.NewTranslation(googleCred, "zh-HK")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,18 +15,12 @@ const translationTimeout = 3 * time.Second
 type Translation struct {
 	ApiKey    string
 	TargetTag language.Tag
-	SourceTag language.Tag
 	Client    *translate.Client
 }
 
-func NewTranslation(apiKey, sourceLanguageCode, targetLanguageCode string) (*Translation, error) {
+func NewTranslation(apiKey, targetLanguageCode string) (*Translation, error) {
 	if env := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); env == "" {
 		os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", apiKey)
-	}
-
-	sourceTag, err := language.Parse(sourceLanguageCode)
-	if err != nil {
-		return nil, fmt.Errorf("incorrect source langauge code: %w", err)
 	}
 
 	targetTag, err := language.Parse(targetLanguageCode)
@@ -42,7 +36,6 @@ func NewTranslation(apiKey, sourceLanguageCode, targetLanguageCode string) (*Tra
 	t := Translation{
 		ApiKey:    apiKey,
 		TargetTag: targetTag,
-		SourceTag: sourceTag,
 		Client:    client,
 	}
 	return &t, nil
@@ -53,7 +46,6 @@ func (t *Translation) Translate(text string) (string, error) {
 	defer cancel()
 
 	option := translate.Options{
-		Source: t.SourceTag,
 		Format: "text",
 	}
 

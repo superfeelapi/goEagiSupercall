@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,8 +60,10 @@ func (w *Worker) supercallOperation() {
 			}
 
 		case transcription := <-w.interimTranscriptCh:
+			if len(strings.TrimSpace(transcription)) == 0 {
+				continue
+			}
 			go func(transcription string) {
-
 				// translation
 				var translatedTranscription string
 				if w.campaign.Translation.InUse {
@@ -89,6 +92,9 @@ func (w *Worker) supercallOperation() {
 			}(transcription)
 
 		case transcription := <-w.fullTranscriptCh:
+			if len(strings.TrimSpace(transcription)) == 0 {
+				continue
+			}
 			go func(transcription string) {
 
 				// translation

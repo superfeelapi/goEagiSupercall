@@ -22,7 +22,6 @@ type Campaign struct {
 
 type Translation struct {
 	InUse  bool   `json:"in_use"`
-	Source string `json:"source"`
 	Target string `json:"target"`
 }
 

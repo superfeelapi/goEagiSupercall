@@ -55,7 +55,7 @@ func Run(s Settings) <-chan error {
 	}
 
 	if w.campaign.Translation.InUse {
-		translation, err := google.NewTranslation(s.GooglePrivateKeyPath, w.campaign.Translation.Source, w.campaign.Translation.Target)
+		translation, err := google.NewTranslation(s.GooglePrivateKeyPath, w.campaign.Translation.Target)
 		if err != nil {
 			return w.error
 		}
@@ -64,24 +64,27 @@ func Run(s Settings) <-chan error {
 
 	operations := make([]func(), 0)
 
+	operations = append(operations, []func(){
+		w.supercallOperation,
+		w.audioStreamOperation,
+	}...)
+
 	if w.campaign.Scam.InUse {
+		w.logger.Infow("worker: scam: enabled")
 		operations = append(operations, w.scamDetectOperation)
 		w.toScamCh = make(chan bool)
 	}
 
 	if w.google != nil {
+		w.logger.Infow("worker: google: enabled")
 		operations = append(operations, w.googleOperation)
 	}
 
 	if w.azure != nil {
+		w.logger.Infow("worker: azure: enabled")
 		// underlying azureOperation will spawn another 3 goroutines
 		operations = append(operations, w.azureOperation)
 	}
-
-	operations = append(operations, []func(){
-		w.supercallOperation,
-		w.audioStreamOperation,
-	}...)
 
 	g := len(operations)
 	w.wg.Add(g)
