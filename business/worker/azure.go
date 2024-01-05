@@ -23,31 +23,13 @@ func (w *Worker) azureOperation() {
 				w.Shutdown(fmt.Errorf("worker: azureOperation: G:json: conn.ReadJSON: %w", err))
 				return
 			}
-
+			if result.Error != nil {
+				w.Shutdown(fmt.Errorf("worker: azureOperation: G:json: %w", result.Error))
+				return
+			}
 			azureResultCh <- result
 		}
 	}(w.azure)
-
-	//go func(conn *websocket.Conn) {
-	//	w.logger.Infow("worker: azureOperation: G started to listen for MESSAGE")
-	//	defer w.logger.Infow("worker: azureOperation: G completed to listen for MESSAGE")
-	//
-	//	for {
-	//		messageType, message, err := conn.ReadMessage()
-	//		if err != nil {
-	//			w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: conn.ReadMessage: %w", err))
-	//			return
-	//		}
-	//		switch messageType {
-	//		case websocket.CloseMessage:
-	//			w.Shutdown(fmt.Errorf("worker: azureOperation: G:message: received close message: %s", string(message)))
-	//			return
-	//
-	//		case websocket.PongMessage:
-	//			w.logger.Infow("worker: azureOperation: G:message: received pong message: %s", string(message))
-	//		}
-	//	}
-	//}(w.azure)
 
 	go func(azureResultCh <-chan AzureResult) {
 		w.logger.Infow("worker: azureOperation: G started to listen for TRANSCRIPTION")

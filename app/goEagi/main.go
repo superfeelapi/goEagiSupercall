@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -132,6 +133,25 @@ func main() {
 	log.Infow("startup", "config", out)
 
 	// =================================================================================================================
+	// Redis
+
+	cfg.Redis.ScamBotChannel = fmt.Sprintf("%s%s", cfg.Redis.ScamBotChannel, cfg.Eagi.AgiID)
+
+	redisClient, err := redis.New(cfg.Redis.Address, cfg.Redis.Password, cfg.Redis.TranscriptionChannel, cfg.Redis.ScamBotChannel, log)
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+
+	// =================================================================================================================
+	// Supercall
+
+	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
+	err = superCall.SetupConnection()
+	if err != nil {
+		log.Errorw("startup", "ERROR", err)
+	}
+
+	// =================================================================================================================
 	// Speech2Text
 
 	var google *goEagi.GoogleService
@@ -171,7 +191,7 @@ func main() {
 			Path:   cfg.Websocket.Path,
 		}
 
-		azure, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+		azure, _, err = websocket.DefaultDialer.Dial(u.String(), http.Header{"api-key": []string{cfg.Websocket.ApiKey}})
 		if err != nil {
 			log.Errorw("startup", "ERROR", err)
 		}
@@ -182,35 +202,14 @@ func main() {
 		}
 
 		registerData := struct {
-			ApiKey       string
 			LanguageCode []string
 		}{
-			ApiKey:       cfg.Websocket.ApiKey,
 			LanguageCode: languageCode,
 		}
 
 		if err := azure.WriteJSON(registerData); err != nil {
 			log.Errorw("startup", "ERROR", err)
 		}
-	}
-
-	// =================================================================================================================
-	// Redis
-
-	cfg.Redis.ScamBotChannel = fmt.Sprintf("%s%s", cfg.Redis.ScamBotChannel, cfg.Eagi.AgiID)
-
-	redisClient, err := redis.New(cfg.Redis.Address, cfg.Redis.Password, cfg.Redis.TranscriptionChannel, cfg.Redis.ScamBotChannel, log)
-	if err != nil {
-		log.Errorw("startup", "ERROR", err)
-	}
-
-	// =================================================================================================================
-	// Supercall
-
-	superCall := supercall.New(cfg.Supercall.ApiEndpoint, cfg.Supercall.ApiToken)
-	err = superCall.SetupConnection()
-	if err != nil {
-		log.Errorw("startup", "ERROR", err)
 	}
 
 	// =================================================================================================================

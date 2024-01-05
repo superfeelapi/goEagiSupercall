@@ -33,6 +33,7 @@ type Config struct {
 type AzureResult struct {
 	Transcription string `json:"transcription"`
 	IsFinal       bool   `json:"is_final"`
+	Error         error  `json:"error"`
 }
 
 // =====================================================================================================================
