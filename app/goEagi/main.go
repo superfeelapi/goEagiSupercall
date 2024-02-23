@@ -62,7 +62,7 @@ func main() {
 			CustomerVoiceEmotionEndpoint string `conf:"default:https://voicebotapi.superceed.com/v1/voice_analysis?model=emotion,noprint"`
 		}
 		TextAnalysis struct {
-			TextEmotionEndpoint string `conf:"default:http://bot.superheroes.ai:4848/emotions,noprint"`
+			TextEmotionEndpoint string `conf:"default:https://chatgptreq.superceed.com/text_emotion,noprint"`
 		}
 		Logger struct {
 			LogDirectory string `conf:"default:/var/log/goEagi/campaigns/,noprint"`

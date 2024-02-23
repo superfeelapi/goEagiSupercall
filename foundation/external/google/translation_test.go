@@ -9,8 +9,8 @@ import (
 const googleCred = "../../../boxwood-pilot-299014-769b582bc376.json"
 
 func TestTranslation_Translate(t *testing.T) {
-	text := "God bless you"
-	translation, err := google.NewTranslation(googleCred, "zh-HK")
+	text := "God bless you, 我的好朋友"
+	translation, err := google.NewTranslation(googleCred, "en")
 	if err != nil {
 		t.Fatal(err)
 	}

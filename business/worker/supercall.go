@@ -118,12 +118,11 @@ func (w *Worker) supercallOperation() {
 			w.logger.Infow("worker: supercallOperation: sending text emotion")
 			go func() {
 				err := w.supercall.SendData(supercall.TextEmotionEvent, supercall.TextEmotionData{
-					Source:                w.config.Actor,
-					AgiId:                 w.config.AgiID,
-					ExtensionId:           w.config.ExtensionID,
-					DataId:                dataID(TextEmotionID),
-					TextEmotion:           textEmotion.Class,
-					TextEmotionConfidence: textEmotion.Confidence,
+					Source:      w.config.Actor,
+					AgiId:       w.config.AgiID,
+					ExtensionId: w.config.ExtensionID,
+					DataId:      dataID(TextEmotionID),
+					TextEmotion: textEmotion.TextEmotion,
 				})
 				if err != nil {
 					w.Shutdown(err)

@@ -8,28 +8,32 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
 const (
 	apiTimeout = 15
+	apiKey     = "a4b98363-e598-4550-97fb-a8ec138fcf38"
 )
 
 func TextEmotion(apiEndpoint string, text string) (Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout*time.Second)
 	defer cancel()
 
-	params := url.Values{}
-	params.Add("text", text)
+	u, err := url.Parse(apiEndpoint)
+	if err != nil {
+		return Result{}, fmt.Errorf("failed to parse endpoint: %w", err)
+	}
 
-	payload := strings.NewReader(params.Encode())
+	q := u.Query()
+	q.Add("text", text)
+	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequest(http.MethodPost, apiEndpoint, payload)
+	req, err := http.NewRequest(http.MethodPost, u.String(), nil)
 	if err != nil {
 		return Result{}, err
 	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("api-key", apiKey)
 
 	req = req.WithContext(ctx)
 	client := http.Client{}

@@ -89,15 +89,12 @@ func (p *Polling) SetupConnection() error {
 	if err := p.establishHandshake(); err != nil {
 		return err
 	}
-
 	if err := p.upgradeWebsocket(); err != nil {
 		return err
 	}
-
 	if err := p.keepConnection(); err != nil {
 		return err
 	}
-
 	if err := p.SendData(authorizationEvent, AuthorizationData{Token: p.apiToken}); err != nil {
 		return err
 	}
