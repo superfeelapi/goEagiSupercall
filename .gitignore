@@ -1,5 +1,6 @@
 # Editor files
 .idea/
+.DS_Store
 app/goEagi/
 foundation/config/config.json
 boxwood-pilot-299014-769b582bc376.json
